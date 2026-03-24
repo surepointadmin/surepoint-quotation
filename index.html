@@ -88,6 +88,24 @@
   .toast.show { opacity: 1; transform: translateY(0); }
   .toast.success { background: #10B981; }
   .toast.error { background: #EF4444; }
+
+  /* ── 탭 ── */
+  .tab-bar { display:flex; gap:0; margin-bottom:28px; border-bottom:2px solid var(--sp-border); }
+  .tab-btn { padding:12px 24px; font-family:'Noto Sans KR',sans-serif; font-size:14px; font-weight:600; background:none; border:none; cursor:pointer; color:var(--sp-gray); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all .15s; }
+  .tab-btn.active { color:var(--sp-blue); border-bottom-color:var(--sp-blue); }
+  .tab-btn:hover:not(.active) { color:var(--sp-dark); }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  /* ── 기록 테이블 ── */
+  .hist-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .hist-table th { background:var(--sp-light); color:var(--sp-gray); font-weight:700; font-size:11px; letter-spacing:.4px; padding:10px 12px; text-align:left; border-bottom:2px solid var(--sp-border); }
+  .hist-table td { padding:11px 12px; border-bottom:1px solid #F0F3F8; vertical-align:middle; color:var(--sp-dark); }
+  .hist-table tr:hover td { background:#F8FAFF; }
+  .hist-empty { text-align:center; padding:48px; color:var(--sp-gray); font-size:14px; }
+  .badge-total { font-weight:700; color:var(--sp-blue); }
+  .hist-refresh { margin-left:auto; }
+
 </style>
 </head>
 <body>
@@ -95,6 +113,11 @@
 <!-- 로고 img — 페이지 로드 시 미리 캐싱 (화면에는 안 보임) -->
 
 <div class="editor-shell">
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('write')">✏️ 견적서 작성</button>
+    <button class="tab-btn" onclick="switchTab('history')">📋 발행 기록</button>
+  </div>
+  <div id="tab-write" class="tab-panel active">
   <div class="editor-header">
     <div class="editor-title">견적서 작성 <span>SurePoint</span></div>
     <div class="btn-group">
@@ -186,6 +209,22 @@
             <input type="file" accept="image/*" style="margin-top:8px;font-size:12.5px" onchange="loadAsset('stamp',this)">
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+  </div><!-- /tab-write -->
+
+  <!-- 발행 기록 탭 -->
+  <div id="tab-history" class="tab-panel">
+    <div class="section-card">
+      <div style="display:flex;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--sp-border)">
+        <div class="section-label" style="margin:0">📋 PDF 발행 기록</div>
+        <button class="btn btn-outline hist-refresh" onclick="loadHistory()" style="padding:7px 16px;font-size:12.5px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>새로고침
+        </button>
+      </div>
+      <div id="hist-content">
+        <div class="hist-empty">불러오는 중...</div>
       </div>
     </div>
   </div>
@@ -484,6 +523,7 @@ async function downloadPDF() {
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
     pdf.save(`SurePoint_견적서_${v('docnum')||v('date')}.pdf`);
     showToast('PDF 저장 완료!', 'success');
+    saveHistory(collectData()); // 발행 기록 저장
   } catch(e) {
     showToast('오류: ' + e.message, 'error');
     console.error(e);
@@ -536,6 +576,83 @@ async function loadAsset(type, input) {
     }
   } catch(e) {
     showToast('업로드 오류: ' + e.message, 'error');
+  }
+}
+
+
+// ── 탭 전환 ──
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ['write','history'][i] === name));
+  document.getElementById('tab-write').classList.toggle('active', name === 'write');
+  document.getElementById('tab-history').classList.toggle('active', name === 'history');
+  if (name === 'history') loadHistory();
+}
+
+// ── 발행 기록 저장 ──
+async function saveHistory(d) {
+  try {
+    await fetch(`https://yxmxrjcmhguczrgyxgfo.supabase.co/rest/v1/quotation_history`, {
+      method: 'POST',
+      headers: {
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4bXhyamNtaGd1Y3pyZ3l4Z2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTY5NDUsImV4cCI6MjA4OTg5Mjk0NX0.xAUk_0J_5vC9emVFooAJEFBRDq7mJP5QGhIcBav6fh8',
+        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4bXhyamNtaGd1Y3pyZ3l4Z2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTY5NDUsImV4cCI6MjA4OTg5Mjk0NX0.xAUk_0J_5vC9emVFooAJEFBRDq7mJP5QGhIcBav6fh8`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({
+        docnum:    d.docnum,
+        client:    d.client,
+        project:   d.project,
+        contact:   d.contact,
+        sales:     d.sales,
+        total:     d.total,
+        sub:       d.sub,
+        vat:       d.vat,
+        remark:    d.remark,
+        rows_json: d.rows,
+      }),
+    });
+  } catch(e) { console.warn('기록 저장 실패:', e); }
+}
+
+// ── 발행 기록 조회 ──
+async function loadHistory() {
+  const el = document.getElementById('hist-content');
+  el.innerHTML = '<div class="hist-empty">불러오는 중...</div>';
+  try {
+    const res = await fetch(
+      `https://yxmxrjcmhguczrgyxgfo.supabase.co/rest/v1/quotation_history?select=*&order=created_at.desc&limit=100`,
+      { headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4bXhyamNtaGd1Y3pyZ3l4Z2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTY5NDUsImV4cCI6MjA4OTg5Mjk0NX0.xAUk_0J_5vC9emVFooAJEFBRDq7mJP5QGhIcBav6fh8', 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4bXhyamNtaGd1Y3pyZ3l4Z2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTY5NDUsImV4cCI6MjA4OTg5Mjk0NX0.xAUk_0J_5vC9emVFooAJEFBRDq7mJP5QGhIcBav6fh8` } }
+    );
+    const data = await res.json();
+    if (!data.length) {
+      el.innerHTML = '<div class="hist-empty">아직 발행된 견적서가 없습니다.</div>';
+      return;
+    }
+    const rows = data.map(r => {
+      const dt = new Date(r.created_at);
+      const dateStr = dt.toLocaleDateString('ko-KR') + ' ' + dt.toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'});
+      const total = r.total ? Number(r.total).toLocaleString('ko-KR') + ' 원' : '-';
+      return `<tr>
+        <td>${dateStr}</td>
+        <td>${r.docnum||'-'}</td>
+        <td>${r.client||'-'}</td>
+        <td>${r.project||'-'}</td>
+        <td>${r.sales||'-'}</td>
+        <td class="badge-total">${total}</td>
+      </tr>`;
+    }).join('');
+    el.innerHTML = `
+      <table class="hist-table">
+        <thead><tr>
+          <th>발행일시</th><th>문서번호</th><th>고객사</th>
+          <th>프로젝트</th><th>담당영업</th><th>합계금액</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:12px;font-size:12px;color:var(--sp-gray);text-align:right">총 ${data.length}건</div>`;
+  } catch(e) {
+    el.innerHTML = '<div class="hist-empty">불러오기 실패: ' + e.message + '</div>';
   }
 }
 
