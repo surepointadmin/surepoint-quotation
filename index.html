@@ -590,17 +590,13 @@ async function downloadPDF() {
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
     const d = collectData();
     const filename = `SurePoint_견적서_${d.docnum||d.date}_${Date.now()}.pdf`;
-    showToast('PDF 업로드 중...', '');
-    // blob 먼저 추출 (save() 호출 전에 해야 함)
-    let pdfPath = null;
-    try {
-      const pdfBlob = pdf.output('blob');
-      pdfPath = await uploadPDF(pdfBlob, filename);
-    } catch(e) { console.warn('PDF 클라우드 저장 실패:', e); }
+    // base64로 추출 (save() 전에)
+    const pdfBase64 = pdf.output('datauristring');
     // 로컬 다운로드
     pdf.save(filename);
-    // 발행 기록 저장
-    await saveHistory({...d, pdfPath});
+    showToast('발행 기록 저장 중...', '');
+    // 발행 기록 저장 (base64 포함)
+    await saveHistory({...d, pdfBase64});
     await initDocnum();
     showToast('PDF 저장 완료! ✓', 'success');
   } catch(e) {
@@ -677,26 +673,20 @@ async function initDocnum() {
 }
 
 
-// ── PDF Supabase 업로드 ──
-async function uploadPDF(pdfBlob, filename) {
-  const res = await fetch(`https://yxmxrjcmhguczrgyxgfo.supabase.co/storage/v1/object/quotation-pdfs/${filename}`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4bXhyamNtaGd1Y3pyZ3l4Z2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTY5NDUsImV4cCI6MjA4OTg5Mjk0NX0.xAUk_0J_5vC9emVFooAJEFBRDq7mJP5QGhIcBav6fh8`,
-      'Content-Type': 'application/pdf',
-      'x-upsert': 'true',
-    },
-    body: pdfBlob,
-  });
-  if (!res.ok) throw new Error('PDF 업로드 실패: ' + await res.text());
-  return `https://yxmxrjcmhguczrgyxgfo.supabase.co/storage/v1/object/public/quotation-pdfs/${filename}`;
-}
+// PDF는 base64로 DB에 직접 저장 (Storage 미사용)
 
 // ── PDF 뷰어 ──
-function openPdfViewer(pdfUrl, docnum) {
+function openPdfViewer(pdfData, docnum) {
   document.getElementById('pdf-viewer-title').textContent = `견적서 - ${docnum}`;
-  document.getElementById('pdf-viewer-frame').src = pdfUrl;
-  document.getElementById('pdf-download-btn').href = pdfUrl;
+  // base64 datauri를 blob URL로 변환해서 iframe에 삽입
+  const byteStr = atob(pdfData.split(',')[1]);
+  const ab = new ArrayBuffer(byteStr.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
+  const blob = new Blob([ab], {type: 'application/pdf'});
+  const blobUrl = URL.createObjectURL(blob);
+  document.getElementById('pdf-viewer-frame').src = blobUrl;
+  document.getElementById('pdf-download-btn').href = blobUrl;
   document.getElementById('pdf-download-btn').download = `SurePoint_견적서_${docnum}.pdf`;
   document.getElementById('pdf-viewer-modal').classList.add('open');
 }
@@ -743,7 +733,7 @@ async function saveHistory(d) {
         vat:       d.vat,
         remark:    d.remark,
         rows_json: d.rows,
-        pdf_path:  d.pdfPath || null,
+        pdf_base64: d.pdfBase64 || null,
       }),
     });
   } catch(e) { console.warn('기록 저장 실패:', e); }
@@ -839,8 +829,8 @@ let _renderedData = [];
 function openPdfByIdx(idx) {
   const r = _renderedData[idx];
   if (!r) return;
-  if (r.pdf_path) {
-    openPdfViewer(r.pdf_path, r.docnum || '');
+  if (r.pdf_base64) {
+    openPdfViewer(r.pdf_base64, r.docnum || '');
   } else {
     showToast('저장된 PDF가 없습니다. 해당 견적서를 다시 저장해주세요.', 'error');
   }
@@ -877,7 +867,7 @@ function renderHistory(data) {
     const dateStr = dt.toLocaleDateString('ko-KR') + ' ' +
       dt.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
     const totalStr = r.total ? Number(r.total).toLocaleString('ko-KR') + ' 원' : '-';
-    const hasP = !!r.pdf_path;
+    const hasP = !!r.pdf_base64;
     // PDF URL과 docnum을 전역 캐시 인덱스로 전달 (따옴표 충돌 완전 회피)
     const viewBtn = hasP
       ? `<button onclick="event.stopPropagation();openPdfByIdx(${idx})" style="background:#EFF6FF;color:#2563EB;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;margin-right:4px">미리보기</button>`
