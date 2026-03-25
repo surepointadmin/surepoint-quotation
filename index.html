@@ -303,13 +303,16 @@
   <div class="pdf-viewer-box">
     <div class="pdf-viewer-head">
       <h2 id="pdf-viewer-title">견적서</h2>
-      <a id="pdf-download-btn" href="#" download class="btn btn-primary" style="padding:8px 18px;font-size:13px;text-decoration:none">
+      <button id="pdf-newtab-btn" onclick="window.open(document.getElementById('pdf-viewer-frame').src,'_blank')" class="btn btn-outline" style="padding:8px 16px;font-size:13px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>새 탭에서 열기
+      </button>
+      <a id="pdf-download-btn" href="#" download class="btn btn-primary" style="padding:8px 16px;font-size:13px;text-decoration:none">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>다운로드
       </a>
-      <button class="modal-close" onclick="closePdfViewer()" style="font-size:26px;background:none;border:none;cursor:pointer;color:#6B7280;line-height:1">×</button>
+      <button class="modal-close" onclick="closePdfViewer()" style="font-size:26px;background:none;border:none;cursor:pointer;color:#6B7280;line-height:1;margin-left:4px">×</button>
     </div>
     <div class="pdf-viewer-body">
-      <iframe id="pdf-viewer-frame" src=""></iframe>
+      <iframe id="pdf-viewer-frame" src="" style="width:100%;min-height:80vh;border:none"></iframe>
     </div>
   </div>
 </div>
@@ -699,15 +702,7 @@ function openPdfViewer(pdfUrl, docnum) {
 }
 
 
-// 기록 행 클릭 이벤트 위임
-document.addEventListener('click', e => {
-  const row = e.target.closest('.hist-row-clickable');
-  if (row && !e.target.closest('button')) {
-    const pdfUrl = row.dataset.pdf;
-    const docnum = row.dataset.docnum;
-    if (pdfUrl) openPdfViewer(pdfUrl, docnum);
-  }
-});
+// 행 클릭은 renderHistory에서 tr onclick으로 직접 처리
 
 function closePdfViewer() {
   document.getElementById('pdf-viewer-modal').classList.remove('open');
