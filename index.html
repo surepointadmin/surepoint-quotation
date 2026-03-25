@@ -833,7 +833,16 @@ function hl(text, kw) {
     '<mark class="highlight">$1</mark>');
 }
 
+// 현재 렌더된 데이터 캐시 (인덱스로 접근하기 위해)
+let _renderedData = [];
+
+function openPdfByIdx(idx) {
+  const r = _renderedData[idx];
+  if (r && r.pdf_path) openPdfViewer(r.pdf_path, r.docnum || '');
+}
+
 function renderHistory(data) {
+  _renderedData = data;
   const el = document.getElementById('hist-content');
   const countEl = document.getElementById('s-count');
   const total_q = _histAllData.length;
@@ -858,19 +867,17 @@ function renderHistory(data) {
   const kSales   = (document.getElementById('s-sales')?.value   || '').trim();
   const kProject = (document.getElementById('s-project')?.value || '').trim();
 
-  const rows = data.map(r => {
+  const rows = data.map((r, idx) => {
     const dt = new Date(r.created_at);
     const dateStr = dt.toLocaleDateString('ko-KR') + ' ' +
       dt.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
     const totalStr = r.total ? Number(r.total).toLocaleString('ko-KR') + ' 원' : '-';
     const hasP = !!r.pdf_path;
-    const pdfAttr = hasP
-      ? ` data-pdf="${r.pdf_path}" data-docnum="${r.docnum}" class="hist-row-clickable"`
-      : '';
+    // PDF URL과 docnum을 전역 캐시 인덱스로 전달 (따옴표 충돌 완전 회피)
     const viewBtn = hasP
-      ? `<button onclick="event.stopPropagation();openPdfViewer(this.closest('[data-pdf]').dataset.pdf,this.closest('[data-pdf]').dataset.docnum)" style="background:#EFF6FF;color:#2563EB;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;margin-right:4px">열람</button>`
+      ? `<button onclick="event.stopPropagation();openPdfByIdx(${idx})" style="background:#EFF6FF;color:#2563EB;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;margin-right:4px">미리보기</button>`
       : '';
-    return `<tr${pdfAttr} style="cursor:${hasP?'pointer':'default'}">
+    return `<tr style="cursor:default">
       <td>${dateStr}</td>
       <td>${hl(r.docnum,  kDocnum)}</td>
       <td>${hl(r.client,  kClient)}</td>
@@ -879,7 +886,7 @@ function renderHistory(data) {
       <td class="badge-total">${totalStr}</td>
       <td style="white-space:nowrap">
         ${viewBtn}
-        <button onclick="event.stopPropagation();deleteHistory(${r.id})" style="background:#FEF2F2;color:#DC2626;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">삭제</button>
+        <button onclick="deleteHistory(${r.id})" style="background:#FEF2F2;color:#DC2626;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">삭제</button>
       </td>
     </tr>`;
   }).join('');
