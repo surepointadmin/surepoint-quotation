@@ -590,15 +590,15 @@ async function downloadPDF() {
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
     const d = collectData();
     const filename = `SurePoint_견적서_${d.docnum||d.date}_${Date.now()}.pdf`;
-    // 로컬 다운로드
-    pdf.save(filename);
-    showToast('PDF 저장 중...', '');
-    // Supabase에 PDF 업로드
+    showToast('PDF 업로드 중...', '');
+    // blob 먼저 추출 (save() 호출 전에 해야 함)
     let pdfPath = null;
     try {
       const pdfBlob = pdf.output('blob');
       pdfPath = await uploadPDF(pdfBlob, filename);
     } catch(e) { console.warn('PDF 클라우드 저장 실패:', e); }
+    // 로컬 다운로드
+    pdf.save(filename);
     // 발행 기록 저장
     await saveHistory({...d, pdfPath});
     await initDocnum();
