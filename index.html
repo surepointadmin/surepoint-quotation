@@ -838,7 +838,12 @@ let _renderedData = [];
 
 function openPdfByIdx(idx) {
   const r = _renderedData[idx];
-  if (r && r.pdf_path) openPdfViewer(r.pdf_path, r.docnum || '');
+  if (!r) return;
+  if (r.pdf_path) {
+    openPdfViewer(r.pdf_path, r.docnum || '');
+  } else {
+    showToast('저장된 PDF가 없습니다. 해당 견적서를 다시 저장해주세요.', 'error');
+  }
 }
 
 function renderHistory(data) {
@@ -885,7 +890,7 @@ function renderHistory(data) {
       <td>${hl(r.sales,   kSales)}</td>
       <td class="badge-total">${totalStr}</td>
       <td style="white-space:nowrap">
-        ${viewBtn}
+        <button onclick="openPdfByIdx(${idx})" style="background:#EFF6FF;color:#2563EB;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;margin-right:4px">미리보기</button>
         <button onclick="deleteHistory(${r.id})" style="background:#FEF2F2;color:#DC2626;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">삭제</button>
       </td>
     </tr>`;
