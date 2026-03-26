@@ -1184,7 +1184,8 @@ async function downloadContractDocx() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `SurePoint_${d.eul.name||'고객사'}_${d.docnum}_${d.date||'날짜'}.docx`;
+    const dateShort = (d.date||'').replace(/^20(\d{2})-(\d{2})-(\d{2})$/, '$1.$2.$3');
+    a.download = `surepoint_${d.eul.name||'고객사'}_${d.docnum}_${dateShort}.docx`;
     a.click();
     URL.revokeObjectURL(url);
     showToast('기록 저장 중...');
@@ -1222,7 +1223,8 @@ async function downloadContractPDF() {
       if (i > 0) pdf.addPage();
       pdf.addImage(pages[i].toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
     }
-    const filename = `SurePoint_${d.eul.name||'고객사'}_${d.docnum}_${d.date||'날짜'}.pdf`;
+    const dateShort = (d.date||'').replace(/^20(\d{2})-(\d{2})-(\d{2})$/, '$1.$2.$3');
+    const filename = `surepoint_${d.eul.name||'고객사'}_${d.docnum}_${dateShort}.pdf`;
     const pdfBase64 = pdf.output('datauristring');
     pdf.save(filename);
     showToast('계약서 기록 저장 중...');
