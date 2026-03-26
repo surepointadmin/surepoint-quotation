@@ -1187,6 +1187,9 @@ async function downloadContractDocx() {
     a.download = `SurePoint_계약서_${d.docnum}.docx`;
     a.click();
     URL.revokeObjectURL(url);
+    showToast('기록 저장 중...');
+    await saveContractHistory({ ...d, pdfBase64: null });
+    await initContractDocnum();
     showToast('Word 파일 저장 완료 ✓', 'success');
   } catch(e) {
     showToast('Word 오류: ' + e.message, 'error');
@@ -1359,7 +1362,20 @@ async function loadHistory() {
   try {
     const table = _histMode === 'quote' ? 'quotation_history' : 'contract_history';
     const res = await fetch(`${SB_URL}/rest/v1/${table}?select=*&order=created_at.desc&limit=500`, { headers: SB_HDR });
-    _histAllData = await res.json();
+    const data = await res.json();
+    if (!res.ok) {
+      const msg = data?.message || data?.hint || `HTTP ${res.status}`;
+      _histAllData = [];
+      const countEl = document.getElementById('s-count');
+      if (countEl) countEl.textContent = '';
+      if (res.status === 404 || (data?.code === '42P01') || (msg && msg.includes('does not exist'))) {
+        el.innerHTML = '<div class="hist-empty">아직 계약서 발행 기록이 없습니다.<br><span style="font-size:12px;color:#9CA3AF">첫 계약서를 저장하면 자동으로 기록됩니다.</span></div>';
+      } else {
+        el.innerHTML = `<div class="hist-empty">불러오기 실패: ${msg}</div>`;
+      }
+      return;
+    }
+    _histAllData = Array.isArray(data) ? data : [];
     applyFilter();
   } catch(e) { el.innerHTML = '<div class="hist-empty">불러오기 실패: ' + e.message + '</div>'; }
 }
@@ -1452,7 +1468,10 @@ function renderHistory(data) {
       <td>${hl(r.sales, kSales)}</td>
       <td class="badge-total">${totalStr}</td>
       <td style="white-space:nowrap">
-        <button onclick="openPdfByIdx(${idx})" style="background:#EFF6FF;color:#2563EB;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;margin-right:4px">미리보기</button>
+        ${r.pdf_base64
+          ? `<button onclick="openPdfByIdx(${idx})" style="background:#EFF6FF;color:#2563EB;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;margin-right:4px">PDF 미리보기</button>`
+          : `<span style="background:#E8F5E9;color:#2E7D32;border-radius:5px;padding:4px 10px;font-size:12px;font-family:inherit;margin-right:4px;display:inline-block">Word 저장</span>`
+        }
         <button onclick="deleteHistoryItem(${r.id})" style="background:#FEF2F2;color:#DC2626;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">삭제</button>
       </td>
     </tr>`;
