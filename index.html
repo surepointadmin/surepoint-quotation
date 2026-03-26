@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SurePoint 견적서</title>
+<title>SurePoint 문서 관리</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root {
     --sp-blue: #2B5BFF;
@@ -37,7 +38,7 @@
   .btn-outline { background: #fff; color: var(--sp-blue); border: 1.5px solid var(--sp-blue); }
   .btn-outline:hover { background: var(--sp-light); transform: translateY(-1px); }
   .btn-green { background: #10B981; color: #fff; }
-  .btn-green:hover { background: #059669; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(16,185,129,.35); }
+  .btn-green:hover { background: #059669; transform: translateY(-1px); }
 
   .section-card { background: #fff; border-radius: 14px; padding: 24px 28px; margin-bottom: 18px; border: 1px solid var(--sp-border); box-shadow: 0 1px 4px rgba(0,0,0,.04); }
   .section-label { font-size: 12px; font-weight: 700; color: var(--sp-blue); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--sp-border); }
@@ -46,15 +47,16 @@
   .form-group.full { grid-column: 1 / -1; }
   label { font-size: 12px; font-weight: 600; color: var(--sp-gray); }
 
-  input[type="text"], input[type="number"], input[type="date"], input[type="email"], textarea {
+  input[type="text"], input[type="number"], input[type="date"], input[type="email"], textarea, select {
     font-family: 'Noto Sans KR', sans-serif; font-size: 14px;
     padding: 9px 13px; border: 1.5px solid var(--sp-border); border-radius: 7px;
     color: var(--sp-dark); background: #FAFBFF;
     transition: border-color .15s, box-shadow .15s; outline: none;
   }
-  input:focus, textarea:focus { border-color: var(--sp-blue); box-shadow: 0 0 0 3px rgba(43,91,255,.12); background: #fff; }
-  textarea { resize: vertical; min-height: 100px; width: 100%; }
+  input:focus, textarea:focus, select:focus { border-color: var(--sp-blue); box-shadow: 0 0 0 3px rgba(43,91,255,.12); background: #fff; }
+  textarea { resize: vertical; min-height: 80px; width: 100%; }
 
+  /* 품목 테이블 */
   .item-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .item-table th { background: var(--sp-light); color: var(--sp-gray); font-weight: 700; font-size: 11px; letter-spacing: .5px; padding: 10px; text-align: center; border-bottom: 2px solid var(--sp-border); }
   .item-table td { padding: 6px; border-bottom: 1px solid #F0F3F8; vertical-align: middle; }
@@ -62,7 +64,6 @@
   .item-table input:hover { border-color: var(--sp-border); background: #FAFBFF; }
   .item-table input:focus { border-color: var(--sp-blue); background: #fff; outline: none; }
   .item-table input.left { text-align: left; }
-
   .btn-del-row { background: #FEF2F2; color: #EF4444; border: none; border-radius: 5px; width: 28px; height: 28px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
   .btn-del-row:hover { background: #FEE2E2; }
   .btn-add-row { margin-top: 10px; background: none; border: 1.5px dashed var(--sp-border); color: var(--sp-gray); border-radius: 7px; padding: 8px 16px; font-size: 13px; cursor: pointer; width: 100%; font-family: 'Noto Sans KR', sans-serif; transition: all .15s; }
@@ -72,7 +73,29 @@
   .total-row { display: flex; gap: 20px; font-size: 14px; color: var(--sp-gray); min-width: 280px; justify-content: space-between; }
   .total-row.grand { font-size: 16px; font-weight: 700; color: var(--sp-dark); padding-top: 10px; border-top: 2px solid var(--sp-dark); margin-top: 4px; }
 
-  /* 미리보기 모달 */
+  /* 탭 */
+  .tab-bar { display: flex; gap: 0; margin-bottom: 28px; border-bottom: 2px solid var(--sp-border); }
+  .tab-btn { padding: 12px 24px; font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 600; background: none; border: none; cursor: pointer; color: var(--sp-gray); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; }
+  .tab-btn.active { color: var(--sp-blue); border-bottom-color: var(--sp-blue); }
+  .tab-btn:hover:not(.active) { color: var(--sp-dark); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* 기록 테이블 */
+  .hist-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .hist-table th { background: var(--sp-light); color: var(--sp-gray); font-weight: 700; font-size: 11px; letter-spacing: .4px; padding: 10px 12px; text-align: left; border-bottom: 2px solid var(--sp-border); }
+  .hist-table td { padding: 11px 12px; border-bottom: 1px solid #F0F3F8; vertical-align: middle; color: var(--sp-dark); }
+  .hist-table tr:hover td { background: #F8FAFF; }
+  .hist-empty { text-align: center; padding: 48px; color: var(--sp-gray); font-size: 14px; }
+  .badge-total { font-weight: 700; color: var(--sp-blue); }
+
+  /* 검색 */
+  .search-bar { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; padding: 16px 0 18px; border-bottom: 1px solid var(--sp-border); margin-bottom: 16px; }
+  .search-actions { display: flex; gap: 8px; align-items: center; grid-column: 1/-1; }
+  .search-count { font-size: 12px; color: var(--sp-gray); margin-left: auto; }
+  .highlight { background: #FEF9C3; border-radius: 2px; padding: 0 1px; }
+
+  /* 모달 */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1000; justify-content: center; align-items: flex-start; overflow-y: auto; padding: 32px 16px; }
   .modal-overlay.open { display: flex; }
   .modal-box { background: #fff; border-radius: 16px; width: 100%; max-width: 820px; margin: auto; box-shadow: 0 24px 64px rgba(0,0,0,.3); overflow: hidden; }
@@ -82,234 +105,311 @@
   .modal-body { padding: 24px; background: #DDE3EE; overflow-x: auto; }
   .modal-foot { padding: 16px 28px; border-top: 1px solid var(--sp-border); display: flex; justify-content: flex-end; gap: 10px; }
   #preview-wrap { display: flex; justify-content: center; }
-  #preview-wrap canvas { box-shadow: 0 4px 24px rgba(0,0,0,.2); border-radius: 3px; max-width: 100%; display: block; }
+
+  /* PDF 뷰어 */
+  .pdf-viewer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 200; justify-content: center; align-items: flex-start; overflow-y: auto; padding: 24px 16px; }
+  .pdf-viewer-overlay.open { display: flex; }
+  .pdf-viewer-box { background: #fff; border-radius: 14px; width: 100%; max-width: 860px; margin: auto; overflow: hidden; box-shadow: 0 32px 80px rgba(0,0,0,.4); }
+  .pdf-viewer-head { padding: 16px 24px; border-bottom: 1px solid var(--sp-border); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .pdf-viewer-head h2 { font-size: 15px; font-weight: 700; flex: 1; }
+  .pdf-viewer-body iframe { width: 100%; min-height: 80vh; border: none; }
+  .pdf-viewer-foot { padding: 14px 24px; border-top: 1px solid var(--sp-border); display: flex; justify-content: flex-end; gap: 10px; }
 
   .toast { position: fixed; bottom: 28px; right: 28px; background: #0A0F1E; color: #fff; padding: 14px 22px; border-radius: 10px; font-size: 14px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,.25); z-index: 9999; opacity: 0; transform: translateY(12px); transition: all .3s; pointer-events: none; }
   .toast.show { opacity: 1; transform: translateY(0); }
   .toast.success { background: #10B981; }
   .toast.error { background: #EF4444; }
 
-  /* ── 탭 ── */
-  .tab-bar { display:flex; gap:0; margin-bottom:28px; border-bottom:2px solid var(--sp-border); }
-  .tab-btn { padding:12px 24px; font-family:'Noto Sans KR',sans-serif; font-size:14px; font-weight:600; background:none; border:none; cursor:pointer; color:var(--sp-gray); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all .15s; }
-  .tab-btn.active { color:var(--sp-blue); border-bottom-color:var(--sp-blue); }
-  .tab-btn:hover:not(.active) { color:var(--sp-dark); }
-  .tab-panel { display:none; }
-  .tab-panel.active { display:block; }
-
-  /* ── 기록 테이블 ── */
-  .hist-table { width:100%; border-collapse:collapse; font-size:13px; }
-  .hist-table th { background:var(--sp-light); color:var(--sp-gray); font-weight:700; font-size:11px; letter-spacing:.4px; padding:10px 12px; text-align:left; border-bottom:2px solid var(--sp-border); }
-  .hist-table td { padding:11px 12px; border-bottom:1px solid #F0F3F8; vertical-align:middle; color:var(--sp-dark); }
-  .hist-table tr:hover td { background:#F8FAFF; }
-  .hist-empty { text-align:center; padding:48px; color:var(--sp-gray); font-size:14px; }
-  .badge-total { font-weight:700; color:var(--sp-blue); }
-  .hist-refresh { margin-left:auto; }
-
-
-  /* ── PDF 뷰어 모달 ── */
-  .pdf-viewer-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:200; justify-content:center; align-items:flex-start; overflow-y:auto; padding:24px 16px; }
-  .pdf-viewer-overlay.open { display:flex; }
-  .pdf-viewer-box { background:#fff; border-radius:14px; width:100%; max-width:860px; margin:auto; overflow:hidden; box-shadow:0 32px 80px rgba(0,0,0,.4); }
-  .pdf-viewer-head { padding:16px 24px; border-bottom:1px solid var(--sp-border); display:flex; justify-content:space-between; align-items:center; gap:12px; }
-  .pdf-viewer-head h2 { font-size:15px; font-weight:700; flex:1; }
-  .pdf-viewer-body { background:#525659; padding:0; display:flex; justify-content:center; min-height:600px; }
-  .pdf-viewer-body iframe { width:100%; min-height:80vh; border:none; }
-  .pdf-viewer-foot { padding:14px 24px; border-top:1px solid var(--sp-border); display:flex; justify-content:flex-end; gap:10px; }
-
-
-  /* ── 검색 필터 ── */
-  .search-bar {
-    display:grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px,1fr));
-    gap:10px;
-    padding:16px 0 18px;
-    border-bottom:1px solid var(--sp-border);
-    margin-bottom:16px;
+  /* 계약서 탭 전용 */
+  .contract-preview-box {
+    background: #fff;
+    border: 1px solid var(--sp-border);
+    border-radius: 10px;
+    padding: 48px 56px;
+    font-family: '맑은 고딕', 'Malgun Gothic', sans-serif;
+    font-size: 13px;
+    line-height: 1.9;
+    color: #111;
+    max-width: 794px;
+    margin: 0 auto;
   }
-  .search-bar input, .search-bar select {
-    font-family:'Noto Sans KR',sans-serif;
-    font-size:13px; padding:8px 11px;
-    border:1.5px solid var(--sp-border); border-radius:7px;
-    color:var(--sp-dark); background:#FAFBFF; outline:none;
-    transition:border-color .13s;
-  }
-  .search-bar input:focus, .search-bar select:focus {
-    border-color:var(--sp-blue); background:#fff;
-  }
-  .search-actions { display:flex; gap:8px; align-items:center; grid-column:1/-1; }
-  .search-count { font-size:12px; color:var(--sp-gray); margin-left:auto; }
-  .highlight { background:#FEF9C3; border-radius:2px; padding:0 1px; }
-
+  .contract-preview-box h1 { font-size: 22px; font-weight: 700; text-align: center; letter-spacing: 6px; margin-bottom: 6px; }
+  .contract-preview-box .c-meta { text-align: right; font-size: 12px; color: #666; margin-bottom: 32px; }
+  .contract-preview-box .c-article { font-weight: 700; margin-top: 22px; margin-bottom: 4px; }
+  .contract-preview-box .c-clause { margin-bottom: 2px; }
+  .contract-preview-box .c-sub { padding-left: 28px; margin-bottom: 2px; }
+  .contract-preview-box .c-bullet { padding-left: 24px; margin-bottom: 2px; }
+  .contract-preview-box .c-bullet::before { content: '- '; }
+  .contract-preview-box .c-divider { border: none; border-top: 1px solid #bbb; margin: 28px 0; }
+  .contract-preview-box .c-sign-block { margin-top: 10px; margin-bottom: 20px; }
+  .contract-preview-box .c-sign-title { font-weight: 700; margin-bottom: 8px; }
+  .contract-preview-box .c-sign-row { display: flex; margin-bottom: 5px; }
+  .contract-preview-box .c-sign-label { width: 80px; flex-shrink: 0; }
+  .contract-preview-box .c-info-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+  .contract-preview-box .c-info-table td { padding: 7px 10px; border: 1px solid #ccc; }
+  .contract-preview-box .c-info-table td:first-child { font-weight: 700; background: #f7f7f7; width: 110px; }
 </style>
 </head>
 <body>
 
-<!-- 로고 img — 페이지 로드 시 미리 캐싱 (화면에는 안 보임) -->
-
 <div class="editor-shell">
   <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('write')">✏️ 견적서 작성</button>
-    <button class="tab-btn" onclick="switchTab('history')">📋 발행 기록</button>
+    <button class="tab-btn active"  onclick="switchTab('write')">✏️ 견적서 작성</button>
+    <button class="tab-btn"         onclick="switchTab('contract')">📄 계약서 작성</button>
+    <button class="tab-btn"         onclick="switchTab('history')">📋 발행 기록</button>
   </div>
+
+  <!-- ══════════════════════════════════════
+       탭 1: 견적서 작성
+  ══════════════════════════════════════ -->
   <div id="tab-write" class="tab-panel active">
-  <div class="editor-header">
-    <div class="editor-title">견적서 작성 <span>SurePoint</span></div>
-    <div class="btn-group">
-      <button class="btn btn-outline" onclick="openPreview()">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>미리보기
-      </button>
-      <button class="btn btn-primary" onclick="downloadPDF()">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PDF 저장
-      </button>
+    <div class="editor-header">
+      <div class="editor-title">견적서 작성 <span>SurePoint</span></div>
+      <div class="btn-group">
+        <button class="btn btn-outline" onclick="openQuotePreview()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>미리보기
+        </button>
+        <button class="btn btn-primary" onclick="downloadQuotePDF()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PDF 저장
+        </button>
+      </div>
     </div>
-  </div>
 
-  <div class="section-card">
-    <div class="section-label">📋 문서 정보</div>
-    <div class="form-grid">
-      <div class="form-group"><label>문서번호</label><input type="text" id="docnum" value="SP-2026-001"></div>
-      <div class="form-group"><label>작성일자</label><input type="date" id="date"></div>
-      <div class="form-group"><label>견적 유효기간</label><input type="text" id="valid" value="발행일로부터 30일"></div>
-      <div class="form-group"><label>담당 영업</label><input type="text" id="sales" placeholder="홍길동"></div>
+    <div class="section-card">
+      <div class="section-label">📋 문서 정보</div>
+      <div class="form-grid">
+        <div class="form-group"><label>문서번호</label><input type="text" id="docnum" value="SP-2026-001"></div>
+        <div class="form-group"><label>작성일자</label><input type="date" id="date"></div>
+        <div class="form-group"><label>견적 유효기간</label><input type="text" id="valid" value="발행일로부터 30일"></div>
+        <div class="form-group"><label>담당 영업</label><input type="text" id="sales" placeholder="홍길동"></div>
+      </div>
     </div>
-  </div>
 
-  <div class="section-card">
-    <div class="section-label">🏢 고객사 정보</div>
-    <div class="form-grid">
-      <div class="form-group"><label>회사명 / 수신처</label><input type="text" id="client" placeholder="(주)고객사"></div>
-      <div class="form-group"><label>담당자명</label><input type="text" id="contact" placeholder="김담당"></div>
-      <div class="form-group"><label>연락처</label><input type="text" id="phone" placeholder="010-0000-0000"></div>
-      <div class="form-group"><label>이메일</label><input type="email" id="cemail" placeholder="contact@company.com"></div>
-      <div class="form-group full"><label>프로젝트 명</label><input type="text" id="project" placeholder="물류센터 AI 안전시스템 도입 건"></div>
+    <div class="section-card">
+      <div class="section-label">🏢 고객사 정보</div>
+      <div class="form-grid">
+        <div class="form-group"><label>회사명 / 수신처</label><input type="text" id="client" placeholder="(주)고객사"></div>
+        <div class="form-group"><label>담당자명</label><input type="text" id="contact" placeholder="김담당"></div>
+        <div class="form-group"><label>연락처</label><input type="text" id="phone" placeholder="010-0000-0000"></div>
+        <div class="form-group"><label>이메일</label><input type="email" id="cemail" placeholder="contact@company.com"></div>
+        <div class="form-group full"><label>프로젝트 명</label><input type="text" id="project" placeholder="물류센터 AI 안전시스템 도입 건"></div>
+      </div>
     </div>
-  </div>
 
-  <div class="section-card">
-    <div class="section-label">📦 견적 품목</div>
-    <div style="overflow-x:auto">
-      <table class="item-table">
-        <thead>
-          <tr>
-            <th style="width:4%">No.</th>
-            <th style="width:22%;text-align:left;padding-left:10px">품명</th>
-            <th style="width:18%;text-align:left;padding-left:10px">규격</th>
-            <th style="width:8%">수량</th>
-            <th style="width:7%">단위</th>
-            <th style="width:13%">단가</th>
-            <th style="width:13%">공급가</th>
-            <th style="width:9%">비고</th>
-            <th style="width:6%"></th>
-          </tr>
-        </thead>
-        <tbody id="item-tbody"></tbody>
-      </table>
+    <div class="section-card">
+      <div class="section-label">📦 견적 품목</div>
+      <div style="overflow-x:auto">
+        <table class="item-table">
+          <thead>
+            <tr>
+              <th style="width:4%">No.</th>
+              <th style="width:22%;text-align:left;padding-left:10px">품명</th>
+              <th style="width:18%;text-align:left;padding-left:10px">규격</th>
+              <th style="width:8%">수량</th>
+              <th style="width:7%">단위</th>
+              <th style="width:13%">단가</th>
+              <th style="width:13%">공급가</th>
+              <th style="width:9%">비고</th>
+              <th style="width:6%"></th>
+            </tr>
+          </thead>
+          <tbody id="item-tbody"></tbody>
+        </table>
+      </div>
+      <button class="btn-add-row" onclick="addRow()">+ 품목 추가</button>
+      <div class="totals-box">
+        <div class="total-row"><span>공급가액</span><span id="ui-subtotal">0 원</span></div>
+        <div class="total-row"><span>부가세 (10%)</span><span id="ui-vat">0 원</span></div>
+        <div class="total-row grand"><span>합계금액</span><span id="ui-total">0 원</span></div>
+      </div>
     </div>
-    <button class="btn-add-row" onclick="addRow()">+ 품목 추가</button>
-    <div class="totals-box">
-      <div class="total-row"><span>공급가액</span><span id="ui-subtotal">0 원</span></div>
-      <div class="total-row"><span>부가세 (10%)</span><span id="ui-vat">0 원</span></div>
-      <div class="total-row grand"><span>합계금액</span><span id="ui-total">0 원</span></div>
-    </div>
-  </div>
 
-  <div class="section-card">
-    <div class="section-label">📝 비고 / 특이사항</div>
-    <textarea id="remark"></textarea>
-  </div>
-  <div class="section-card">
-    <div class="section-label">🖼️ 이미지 설정</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px">
-      <div>
-        <div style="font-size:12px;font-weight:700;color:#0A0F1E;margin-bottom:12px">로고 이미지</div>
-        <div style="display:flex;align-items:center;gap:14px">
-          <div id="logo-preview" style="width:130px;height:50px;border:1.5px dashed #E5E9F0;border-radius:8px;background:#FAFBFF;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
-            <span style="font-size:11px;color:#CBD5E1">로고 없음</span>
+    <div class="section-card">
+      <div class="section-label">📝 비고 / 특이사항</div>
+      <textarea id="remark"></textarea>
+    </div>
+
+    <div class="section-card">
+      <div class="section-label">🖼️ 이미지 설정</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#0A0F1E;margin-bottom:12px">로고 이미지</div>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div id="logo-preview" style="width:130px;height:50px;border:1.5px dashed #E5E9F0;border-radius:8px;background:#FAFBFF;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+              <span style="font-size:11px;color:#CBD5E1">로고 없음</span>
+            </div>
+            <div>
+              <div style="font-size:12px;color:#6B7280;line-height:1.8"><strong style="display:block;color:#0A0F1E;margin-bottom:2px">로고 업로드</strong>PDF 상단 + 하단에 출력됩니다.</div>
+              <input type="file" accept="image/*" style="margin-top:8px;font-size:12.5px" onchange="loadAsset('logo',this)">
+            </div>
           </div>
-          <div>
-            <div style="font-size:12px;color:#6B7280;line-height:1.8"><strong style="display:block;color:#0A0F1E;margin-bottom:2px">로고 업로드</strong>PDF 상단 + 하단에 출력됩니다.</div>
-            <input type="file" accept="image/*" style="margin-top:8px;font-size:12.5px" onchange="loadAsset('logo',this)">
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#0A0F1E;margin-bottom:12px">인감 이미지</div>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div id="stamp-preview" style="width:64px;height:64px;border:1.5px dashed #E5E9F0;border-radius:50%;background:#FAFBFF;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+              <span style="font-size:11px;color:#CBD5E1;text-align:center;line-height:1.4">인감<br>없음</span>
+            </div>
+            <div>
+              <div style="font-size:12px;color:#6B7280;line-height:1.8"><strong style="display:block;color:#0A0F1E;margin-bottom:2px">인감 업로드</strong>PDF 날인 영역에 삽입됩니다.</div>
+              <input type="file" accept="image/*" style="margin-top:8px;font-size:12.5px" onchange="loadAsset('stamp',this)">
+            </div>
           </div>
         </div>
       </div>
-      <div>
-        <div style="font-size:12px;font-weight:700;color:#0A0F1E;margin-bottom:12px">인감 이미지</div>
-        <div style="display:flex;align-items:center;gap:14px">
-          <div id="stamp-preview" style="width:64px;height:64px;border:1.5px dashed #E5E9F0;border-radius:50%;background:#FAFBFF;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
-            <span style="font-size:11px;color:#CBD5E1;text-align:center;line-height:1.4">인감<br>없음</span>
-          </div>
-          <div>
-            <div style="font-size:12px;color:#6B7280;line-height:1.8"><strong style="display:block;color:#0A0F1E;margin-bottom:2px">인감 업로드</strong>PDF 날인 영역에 삽입됩니다.</div>
-            <input type="file" accept="image/*" style="margin-top:8px;font-size:12.5px" onchange="loadAsset('stamp',this)">
-          </div>
-        </div>
-      </div>
     </div>
-  </div>
   </div><!-- /tab-write -->
 
-  <!-- 발행 기록 탭 -->
+
+  <!-- ══════════════════════════════════════
+       탭 2: 계약서 작성
+  ══════════════════════════════════════ -->
+  <div id="tab-contract" class="tab-panel">
+    <div class="editor-header">
+      <div class="editor-title">계약서 작성 <span>SurePoint</span></div>
+      <div class="btn-group">
+        <button class="btn btn-outline" onclick="openContractPreview()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>미리보기
+        </button>
+        <button class="btn btn-outline" onclick="downloadContractDocx()" style="color:#217346;border-color:#217346">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Word 저장
+        </button>
+        <button class="btn btn-primary" onclick="downloadContractPDF()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PDF 저장
+        </button>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-label">📋 계약 기본 정보</div>
+      <div class="form-grid">
+        <div class="form-group"><label>계약번호</label><input type="text" id="c-docnum" value="SRP-2026-001"></div>
+        <div class="form-group"><label>계약일자</label><input type="date" id="c-date"></div>
+        <div class="form-group"><label>담당 영업</label><input type="text" id="c-sales" placeholder="홍길동"></div>
+        <div class="form-group"><label>참조 견적번호</label><input type="text" id="c-quoteref" placeholder="SP-2026-001"></div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-label">🏢 갑 (공급사) 정보</div>
+      <div class="form-grid">
+        <div class="form-group full"><label>상호</label><input type="text" id="c-ga-name" value="주식회사 슈어포인트"></div>
+        <div class="form-group full"><label>주소</label><input type="text" id="c-ga-addr" value="경기도 오산시 문시로 109-22"></div>
+        <div class="form-group"><label>대표자</label><input type="text" id="c-ga-rep" value="이상혁"></div>
+        <div class="form-group"><label>사업자등록번호</label><input type="text" id="c-ga-brn" value="247-88-03322"></div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-label">🏢 을 (수요사) 정보</div>
+      <div class="form-grid">
+        <div class="form-group full"><label>상호</label><input type="text" id="c-eul-name" placeholder="(주)한국물류"></div>
+        <div class="form-group full"><label>주소</label><input type="text" id="c-eul-addr" placeholder="주소 입력"></div>
+        <div class="form-group"><label>대표자</label><input type="text" id="c-eul-rep" placeholder="대표자 성명"></div>
+        <div class="form-group"><label>사업자등록번호</label><input type="text" id="c-eul-brn" placeholder="000-00-00000"></div>
+        <div class="form-group"><label>담당자</label><input type="text" id="c-eul-contact" placeholder="김담당"></div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-label">💰 공급 및 대금 내역</div>
+      <div class="form-grid">
+        <div class="form-group full"><label>공급 품목 요약 (계약서 본문에 표시)</label><input type="text" id="c-item-summary" placeholder="예: AI-S2 지게차 안전 솔루션 5대, 설치 공사 일체"></div>
+        <div class="form-group"><label>공급가액 (원, VAT 별도)</label><input type="number" id="c-supply" placeholder="0" oninput="calcContractTotal()"></div>
+        <div class="form-group"><label>부가세 (원)</label><input type="number" id="c-vat" placeholder="자동계산" readonly style="color:#888"></div>
+        <div class="form-group"><label>합계금액 (원)</label><input type="number" id="c-total" placeholder="자동계산" readonly style="color:#888"></div>
+        <div class="form-group full"><label>대금 지급 조건</label><input type="text" id="c-payment" placeholder="예: 계약금 30% (계약체결 후 5영업일), 잔금 70% (설치완료 후 30일)"></div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-label">📝 특약 사항 (선택)</div>
+      <textarea id="c-special" placeholder="추가 특약 사항이 있을 경우 입력하세요."></textarea>
+    </div>
+  </div><!-- /tab-contract -->
+
+
+  <!-- ══════════════════════════════════════
+       탭 3: 발행 기록
+  ══════════════════════════════════════ -->
   <div id="tab-history" class="tab-panel">
     <div class="section-card">
       <div style="display:flex;align-items:center;margin-bottom:0;padding-bottom:14px;border-bottom:1px solid var(--sp-border)">
-        <div class="section-label" style="margin:0">📋 PDF 발행 기록</div>
-        <button class="btn btn-outline hist-refresh" onclick="loadHistory()" style="padding:7px 16px;font-size:12.5px;margin-left:auto">
+        <div class="section-label" style="margin:0">📋 발행 기록</div>
+        <div style="margin-left:16px;display:flex;gap:8px">
+          <button class="tab-btn" id="hist-tab-quote" onclick="switchHistTab('quote')" style="padding:6px 16px;font-size:13px;border:1.5px solid var(--sp-border);border-radius:6px;background:#fff;cursor:pointer;font-weight:600;color:var(--sp-blue)">견적서</button>
+          <button class="tab-btn" id="hist-tab-contract" onclick="switchHistTab('contract')" style="padding:6px 16px;font-size:13px;border:1.5px solid var(--sp-border);border-radius:6px;background:#fff;cursor:pointer;font-weight:600;color:var(--sp-gray)">계약서</button>
+        </div>
+        <button class="btn btn-outline" onclick="loadHistory()" style="padding:7px 16px;font-size:12.5px;margin-left:auto">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>새로고침
         </button>
       </div>
 
-      <!-- 검색 필터 -->
       <div class="search-bar">
-        <input type="text"   id="s-docnum"  placeholder="🔍 문서번호"    oninput="applyFilter()">
-        <input type="text"   id="s-client"  placeholder="🔍 고객사"       oninput="applyFilter()">
-        <input type="text"   id="s-contact" placeholder="🔍 담당자"       oninput="applyFilter()">
-        <input type="text"   id="s-sales"   placeholder="🔍 담당영업"     oninput="applyFilter()">
-        <input type="text"   id="s-project" placeholder="🔍 프로젝트"     oninput="applyFilter()">
-        <input type="date"   id="s-from"    title="시작일"                 onchange="applyFilter()">
-        <input type="date"   id="s-to"      title="종료일"                 onchange="applyFilter()">
+        <input type="text" id="s-docnum"  placeholder="🔍 문서번호"  oninput="applyFilter()">
+        <input type="text" id="s-client"  placeholder="🔍 고객사"    oninput="applyFilter()">
+        <input type="text" id="s-contact" placeholder="🔍 담당자"    oninput="applyFilter()">
+        <input type="text" id="s-sales"   placeholder="🔍 담당영업"  oninput="applyFilter()">
+        <input type="text" id="s-project" placeholder="🔍 프로젝트"  oninput="applyFilter()">
+        <input type="date" id="s-from"  title="시작일" onchange="applyFilter()">
+        <input type="date" id="s-to"    title="종료일" onchange="applyFilter()">
         <div class="search-actions">
           <button class="btn btn-outline" onclick="clearFilter()" style="padding:7px 14px;font-size:12.5px">초기화</button>
           <span class="search-count" id="s-count"></span>
         </div>
       </div>
-
-      <div id="hist-content">
-        <div class="hist-empty">불러오는 중...</div>
-      </div>
+      <div id="hist-content"><div class="hist-empty">불러오는 중...</div></div>
     </div>
-  </div>
-</div>
+  </div><!-- /tab-history -->
+</div><!-- /editor-shell -->
 
-<!-- 미리보기 모달 -->
+
+<!-- 견적서 미리보기 모달 -->
 <div class="modal-overlay" id="preview-modal">
   <div class="modal-box">
     <div class="modal-head">
       <div class="modal-head-title">견적서 미리보기</div>
-      <button class="modal-close" onclick="closePreview()">×</button>
+      <button class="modal-close" onclick="closeQuotePreview()">×</button>
     </div>
     <div class="modal-body">
       <div id="preview-wrap"><canvas id="preview-canvas"></canvas></div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-outline" onclick="closePreview()">닫기</button>
-      <button class="btn btn-primary" onclick="downloadPDF()">PDF 저장</button>
+      <button class="btn btn-outline" onclick="closeQuotePreview()">닫기</button>
+      <button class="btn btn-primary" onclick="downloadQuotePDF()">PDF 저장</button>
     </div>
   </div>
 </div>
 
-<!-- PDF 뷰어 모달 -->
+<!-- 계약서 미리보기 모달 -->
+<div class="modal-overlay" id="contract-preview-modal">
+  <div class="modal-box" style="max-width:860px">
+    <div class="modal-head">
+      <div class="modal-head-title">계약서 미리보기</div>
+      <button class="modal-close" onclick="closeContractPreview()">×</button>
+    </div>
+    <div class="modal-body" style="max-height:80vh;overflow-y:auto;background:#e8eaf0;padding:32px">
+      <div id="contract-preview-content"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeContractPreview()">닫기</button>
+      <button class="btn btn-primary" onclick="downloadContractPDF()">PDF 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF 뷰어 -->
 <div class="pdf-viewer-overlay" id="pdf-viewer-modal">
   <div class="pdf-viewer-box">
     <div class="pdf-viewer-head">
-      <h2 id="pdf-viewer-title">견적서</h2>
+      <h2 id="pdf-viewer-title">문서</h2>
       <button id="pdf-newtab-btn" onclick="window.open(document.getElementById('pdf-viewer-frame').src,'_blank')" class="btn btn-outline" style="padding:8px 16px;font-size:13px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>새 탭에서 열기
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>새 탭
       </button>
       <a id="pdf-download-btn" href="#" download class="btn btn-primary" style="padding:8px 16px;font-size:13px;text-decoration:none">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>다운로드
       </a>
-      <button class="modal-close" onclick="closePdfViewer()" style="font-size:26px;background:none;border:none;cursor:pointer;color:#6B7280;line-height:1;margin-left:4px">×</button>
+      <button onclick="closePdfViewer()" style="font-size:26px;background:none;border:none;cursor:pointer;color:#6B7280;line-height:1;margin-left:4px">×</button>
     </div>
     <div class="pdf-viewer-body">
       <iframe id="pdf-viewer-frame" src="" style="width:100%;min-height:80vh;border:none"></iframe>
@@ -320,70 +420,75 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ── 로고 src (페이지 로드 시 img 태그로 미리 캐싱됨) ──
-// ── Supabase Storage 연동 ──
+// ═══════════════════════════════════════════════
+// Supabase
+// ═══════════════════════════════════════════════
 const SB_URL = 'https://yxmxrjcmhguczrgyxgfo.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4bXhyamNtaGd1Y3pyZ3l4Z2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTY5NDUsImV4cCI6MjA4OTg5Mjk0NX0.xAUk_0J_5vC9emVFooAJEFBRDq7mJP5QGhIcBav6fh8';
 const SB_BUCKET = 'quotation-assets';
+const SB_HDR = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
 
-function sbStorageURL(filename) {
-  return `${SB_URL}/storage/v1/object/public/${SB_BUCKET}/${filename}`;
-}
-
+function sbUrl(path) { return `${SB_URL}/storage/v1/object/public/${SB_BUCKET}/${path}`; }
 async function sbUpload(filename, file) {
-  // 기존 파일 삭제 후 재업로드
-  await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}/${filename}`, {
-    method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${SB_KEY}` }
-  });
+  await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}/${filename}`, { method: 'DELETE', headers: SB_HDR });
   const res = await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}/${filename}`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${SB_KEY}`,
-      'Content-Type': file.type,
-      'x-upsert': 'true',
-    },
-    body: file,
+    method: 'POST', headers: { ...SB_HDR, 'Content-Type': file.type, 'x-upsert': 'true' }, body: file,
   });
-  if (!res.ok) throw new Error('업로드 실패: ' + await res.text());
-  return sbStorageURL(filename);
+  if (!res.ok) throw new Error('업로드 실패');
+  return sbUrl(filename) + '?t=' + Date.now();
 }
 
 let logoURL = null, stampURL = null;
 
-// 페이지 로드 시 Supabase에서 이미지 복원
 async function loadSavedImages() {
-  // logo
-  const logoRes = await fetch(sbStorageURL('logo'), { method: 'HEAD' });
-  if (logoRes.ok) {
-    logoURL = sbStorageURL('logo') + '?t=' + Date.now();
-    document.getElementById('logo-preview').innerHTML =
-      `<img src="${logoURL}" style="width:100%;height:100%;object-fit:contain">`;
-  }
-  // stamp
-  const stampRes = await fetch(sbStorageURL('stamp'), { method: 'HEAD' });
-  if (stampRes.ok) {
-    stampURL = sbStorageURL('stamp') + '?t=' + Date.now();
-    document.getElementById('stamp-preview').innerHTML =
-      `<img src="${stampURL}" style="width:100%;height:100%;object-fit:contain">`;
+  for (const type of ['logo', 'stamp']) {
+    const r = await fetch(sbUrl(type), { method: 'HEAD' });
+    if (r.ok) {
+      const url = sbUrl(type) + '?t=' + Date.now();
+      if (type === 'logo') { logoURL = url; document.getElementById('logo-preview').innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain">`; }
+      else { stampURL = url; document.getElementById('stamp-preview').innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain">`; }
+    }
   }
 }
-window.addEventListener('DOMContentLoaded', () => { loadSavedImages(); initDocnum(); });
 
-// ── 초기화 ──
-document.getElementById('date').valueAsDate = new Date();
+async function loadAsset(type, input) {
+  const file = input.files[0]; if (!file) return;
+  showToast('업로드 중...');
+  try {
+    const url = await sbUpload(type === 'logo' ? 'logo' : 'stamp', file);
+    if (type === 'logo') { logoURL = url; document.getElementById('logo-preview').innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain">`; }
+    else { stampURL = url; document.getElementById('stamp-preview').innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain">`; }
+    showToast((type === 'logo' ? '로고' : '인감') + ' 저장 완료 ✓', 'success');
+  } catch(e) { showToast('업로드 오류: ' + e.message, 'error'); }
+}
 
-// 비고 기본값
-document.getElementById('remark').value =
-`#상세내역
- - 견적유효기간 : 견적일로부터 30일
- - 워런티기간 : 설치일로부터 1년`;
+// ═══════════════════════════════════════════════
+// 초기화
+// ═══════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  loadSavedImages();
+  initDocnum();
+  document.getElementById('date').valueAsDate = new Date();
+  document.getElementById('c-date').valueAsDate = new Date();
+  document.getElementById('remark').value = `#상세내역\n - 견적유효기간 : 견적일로부터 30일\n - 워런티기간 : 설치일로부터 1년`;
+  addRow();
+});
 
+// ═══════════════════════════════════════════════
+// 탭 전환
+// ═══════════════════════════════════════════════
+function switchTab(name) {
+  ['write','contract','history'].forEach((t, i) => {
+    document.querySelectorAll('.tab-bar .tab-btn')[i].classList.toggle('active', t === name);
+    document.getElementById('tab-' + t).classList.toggle('active', t === name);
+  });
+  if (name === 'history') loadHistory();
+}
+
+// ═══════════════════════════════════════════════
+// 견적서 — 품목 / 합계
+// ═══════════════════════════════════════════════
 let rowIndex = 0;
-// 초기 빈 행 1개
-addRow();
-
-// ── 품목 행 ──
 function addRow(data = {}) {
   rowIndex++;
   const idx = rowIndex;
@@ -402,9 +507,7 @@ function addRow(data = {}) {
   document.getElementById('item-tbody').appendChild(tr);
   calcTotals();
 }
-
 function delRow(idx) { document.getElementById(`row-${idx}`)?.remove(); calcTotals(); }
-
 function calcRow(idx) {
   const qty = parseFloat(document.getElementById(`qty-${idx}`)?.value)||0;
   const price = parseFloat(document.getElementById(`price-${idx}`)?.value)||0;
@@ -412,7 +515,6 @@ function calcRow(idx) {
   if (s) s.value = qty * price;
   calcTotals();
 }
-
 function calcTotals() {
   let sub = 0;
   document.querySelectorAll('[id^="supply-"]').forEach(el => sub += parseFloat(el.value)||0);
@@ -421,40 +523,45 @@ function calcTotals() {
   document.getElementById('ui-vat').textContent = fmt(vat) + ' 원';
   document.getElementById('ui-total').textContent = fmt(sub + vat) + ' 원';
 }
+function calcContractTotal() {
+  const sub = parseFloat(document.getElementById('c-supply').value) || 0;
+  const vat = Math.round(sub * 0.1);
+  document.getElementById('c-vat').value = vat;
+  document.getElementById('c-total').value = sub + vat;
+}
 
 function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
 function v(id) { return document.getElementById(id)?.value || ''; }
 
-function collectData() {
+function collectQuoteData() {
   const rows = [];
   document.querySelectorAll('#item-tbody tr').forEach(tr => {
     const ins = tr.querySelectorAll('input');
-    rows.push({
-      name: ins[0].value, spec: ins[1].value,
-      qty: parseFloat(ins[2].value)||0, unit: ins[3].value,
-      price: parseFloat(ins[4].value)||0, supply: parseFloat(ins[5].value)||0,
-      note: ins[6].value,
-    });
+    rows.push({ name: ins[0].value, spec: ins[1].value, qty: parseFloat(ins[2].value)||0, unit: ins[3].value, price: parseFloat(ins[4].value)||0, supply: parseFloat(ins[5].value)||0, note: ins[6].value });
   });
   const sub = rows.reduce((s, r) => s + r.supply, 0);
   const vat = Math.round(sub * 0.1);
+  return { docnum: v('docnum'), date: v('date'), valid: v('valid'), sales: v('sales'), client: v('client'), contact: v('contact'), phone: v('phone'), email: v('cemail'), project: v('project'), remark: v('remark'), rows, sub, vat, total: sub + vat };
+}
+
+function collectContractData() {
+  const sub = parseFloat(v('c-supply')) || 0;
+  const vat = Math.round(sub * 0.1);
   return {
-    docnum: v('docnum'), date: v('date'), valid: v('valid'), sales: v('sales'),
-    client: v('client'), contact: v('contact'), phone: v('phone'),
-    email: v('cemail'), project: v('project'), remark: v('remark'),
-    rows, sub, vat, total: sub + vat,
+    docnum: v('c-docnum'), date: v('c-date'), sales: v('c-sales'), quoteref: v('c-quoteref'),
+    ga: { name: v('c-ga-name'), addr: v('c-ga-addr'), rep: v('c-ga-rep'), brn: v('c-ga-brn') },
+    eul: { name: v('c-eul-name'), addr: v('c-eul-addr'), rep: v('c-eul-rep'), brn: v('c-eul-brn'), contact: v('c-eul-contact') },
+    itemSummary: v('c-item-summary'), supply: sub, vat, total: sub + vat,
+    payment: v('c-payment'), special: v('c-special'),
   };
 }
 
-// ════════════════════════════════════════════════
-// PDF 렌더링 — 로고를 <img> 태그로 HTML 안에 직접 포함
-// drawImage() 사용 안 함 → "broken state" 오류 완전 제거
-// ════════════════════════════════════════════════
-function buildPDFHTML(d) {
-  const remarkLines = d.remark.trim()
-    ? d.remark.replace(/\n/g, '<br>') : '';
-
-  const rows = d.rows.map((r, i) => `
+// ═══════════════════════════════════════════════
+// 견적서 PDF
+// ═══════════════════════════════════════════════
+function buildQuotePDFHTML(d) {
+  const remarkLines = d.remark.trim() ? d.remark.replace(/\n/g,'<br>') : '';
+  const rows = d.rows.map((r,i) => `
     <tr style="background:${i%2===1?'#F8FAFF':'#fff'}">
       <td style="padding:8px 6px;text-align:center;border-bottom:1px solid #E5E9F0;font-size:12px">${i+1}</td>
       <td style="padding:8px;text-align:left;border-bottom:1px solid #E5E9F0;font-size:12px">${r.name}</td>
@@ -465,441 +572,910 @@ function buildPDFHTML(d) {
       <td style="padding:8px;text-align:right;border-bottom:1px solid #E5E9F0;font-size:12px;font-weight:600;color:#2B5BFF">${fmt(r.supply)}</td>
       <td style="padding:8px 6px;text-align:center;border-bottom:1px solid #E5E9F0;font-size:11px;color:#6B7280">${r.note}</td>
     </tr>`).join('');
-
   return `
-<div style="width:794px;min-height:1123px;background:#fff;padding:48px 52px 48px;font-family:'Noto Sans KR',sans-serif;font-size:13px;color:#0A0F1E;display:flex;flex-direction:column;box-sizing:border-box">
-
-  <!-- 헤더: 로고 img 직접 포함 -->
+<div style="width:794px;min-height:1123px;background:#fff;padding:48px 52px;font-family:'Noto Sans KR',sans-serif;font-size:13px;color:#0A0F1E;display:flex;flex-direction:column;box-sizing:border-box">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px">
-    ${logoURL ? '<img src="'+logoURL+'" alt="SurePoint" style="height:28px;display:block">' : '<span style="font-size:13px;font-weight:700;color:#0A0F1E">SurePoint</span>'}
-    <div style="text-align:right;font-size:12px;color:#6B7280;line-height:2">
-      <div>문서번호 : ${d.docnum}</div>
-      <div>작성일자 : ${d.date}</div>
-      <div>유효기간 : ${d.valid}</div>
-    </div>
+    ${logoURL?`<img src="${logoURL}" style="height:28px">`:'<span style="font-size:13px;font-weight:700">SurePoint</span>'}
+    <div style="text-align:right;font-size:12px;color:#6B7280;line-height:2"><div>문서번호 : ${d.docnum}</div><div>작성일자 : ${d.date}</div><div>유효기간 : ${d.valid}</div></div>
   </div>
-
-  <!-- 제목 -->
-  <div style="text-align:center;font-size:26px;font-weight:700;letter-spacing:4px;margin-bottom:28px">
-    견 &nbsp; 적 &nbsp; 서
-    <div style="width:48px;height:3px;background:#2B5BFF;margin:10px auto 0;border-radius:2px"></div>
-  </div>
-
-  <!-- 기본 정보 -->
-  <table style="width:100%;border-collapse:collapse;border:1px solid #E5E9F0;border-radius:8px;overflow:hidden;margin-bottom:24px;font-size:12.5px">
-    <tr>
-      <td style="padding:9px 14px;border-bottom:1px solid #E5E9F0;border-right:1px solid #E5E9F0;width:50%"><b style="color:#6B7280;min-width:68px;display:inline-block">수신처</b>${d.client}</td>
-      <td style="padding:9px 14px;border-bottom:1px solid #E5E9F0"><b style="color:#6B7280;min-width:68px;display:inline-block">담당자</b>${d.contact}</td>
-    </tr>
-    <tr>
-      <td style="padding:9px 14px;border-bottom:1px solid #E5E9F0;border-right:1px solid #E5E9F0"><b style="color:#6B7280;min-width:68px;display:inline-block">연락처</b>${d.phone}</td>
-      <td style="padding:9px 14px;border-bottom:1px solid #E5E9F0"><b style="color:#6B7280;min-width:68px;display:inline-block">이메일</b>${d.email}</td>
-    </tr>
-    <tr>
-      <td style="padding:9px 14px;border-bottom:1px solid #E5E9F0;border-right:1px solid #E5E9F0"><b style="color:#6B7280;min-width:68px;display:inline-block">공급사</b>주식회사 슈어포인트</td>
-      <td style="padding:9px 14px;border-bottom:1px solid #E5E9F0"><b style="color:#6B7280;min-width:68px;display:inline-block">담당영업</b>${d.sales}</td>
-    </tr>
-    <tr>
-      <td colspan="2" style="padding:9px 14px"><b style="color:#6B7280;min-width:68px;display:inline-block">프로젝트</b>${d.project}</td>
-    </tr>
+  <div style="text-align:center;font-size:26px;font-weight:700;letter-spacing:4px;margin-bottom:28px">견 &nbsp; 적 &nbsp; 서<div style="width:48px;height:3px;background:#2B5BFF;margin:10px auto 0;border-radius:2px"></div></div>
+  <table style="width:100%;border-collapse:collapse;border:1px solid #E5E9F0;margin-bottom:24px;font-size:12.5px">
+    <tr><td style="padding:9px 14px;border-bottom:1px solid #E5E9F0;border-right:1px solid #E5E9F0;width:50%"><b style="color:#6B7280;min-width:68px;display:inline-block">수신처</b>${d.client}</td><td style="padding:9px 14px;border-bottom:1px solid #E5E9F0"><b style="color:#6B7280;min-width:68px;display:inline-block">담당자</b>${d.contact}</td></tr>
+    <tr><td style="padding:9px 14px;border-bottom:1px solid #E5E9F0;border-right:1px solid #E5E9F0"><b style="color:#6B7280;min-width:68px;display:inline-block">연락처</b>${d.phone}</td><td style="padding:9px 14px;border-bottom:1px solid #E5E9F0"><b style="color:#6B7280;min-width:68px;display:inline-block">이메일</b>${d.email}</td></tr>
+    <tr><td style="padding:9px 14px;border-bottom:1px solid #E5E9F0;border-right:1px solid #E5E9F0"><b style="color:#6B7280;min-width:68px;display:inline-block">공급사</b>주식회사 슈어포인트</td><td style="padding:9px 14px;border-bottom:1px solid #E5E9F0"><b style="color:#6B7280;min-width:68px;display:inline-block">담당영업</b>${d.sales}</td></tr>
+    <tr><td colspan="2" style="padding:9px 14px"><b style="color:#6B7280;min-width:68px;display:inline-block">프로젝트</b>${d.project}</td></tr>
   </table>
-
-  <!-- 품목 -->
   <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px">
-    <thead>
-      <tr style="background:#0A0F1E;color:#fff">
-        <th style="padding:9px 6px;text-align:center;width:4%">No.</th>
-        <th style="padding:9px 8px;text-align:left;width:25%">품명</th>
-        <th style="padding:9px 8px;text-align:left;width:17%">규격</th>
-        <th style="padding:9px 6px;text-align:center;width:7%">수량</th>
-        <th style="padding:9px 6px;text-align:center;width:7%">단위</th>
-        <th style="padding:9px 8px;text-align:right;width:14%">단가</th>
-        <th style="padding:9px 8px;text-align:right;width:14%">공급가</th>
-        <th style="padding:9px 6px;text-align:center;width:8%">비고</th>
-      </tr>
-    </thead>
+    <thead><tr style="background:#0A0F1E;color:#fff">
+      <th style="padding:9px 6px;text-align:center;width:4%">No.</th>
+      <th style="padding:9px 8px;text-align:left;width:25%">품명</th>
+      <th style="padding:9px 8px;text-align:left;width:17%">규격</th>
+      <th style="padding:9px 6px;text-align:center;width:7%">수량</th>
+      <th style="padding:9px 6px;text-align:center;width:7%">단위</th>
+      <th style="padding:9px 8px;text-align:right;width:14%">단가</th>
+      <th style="padding:9px 8px;text-align:right;width:14%">공급가</th>
+      <th style="padding:9px 6px;text-align:center;width:8%">비고</th>
+    </tr></thead>
     <tbody>${rows}</tbody>
   </table>
-
-  <!-- 합계 -->
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-bottom:20px">
     <div style="display:flex;justify-content:space-between;min-width:260px;font-size:13px;color:#6B7280;padding:3px 0"><span>공급가액</span><span>${fmt(d.sub)} 원</span></div>
     <div style="display:flex;justify-content:space-between;min-width:260px;font-size:13px;color:#6B7280;padding:3px 0"><span>부가세 (10%)</span><span>${fmt(d.vat)} 원</span></div>
     <div style="display:flex;justify-content:space-between;min-width:260px;font-size:15px;font-weight:700;color:#0A0F1E;border-top:2px solid #0A0F1E;padding-top:8px;margin-top:4px"><span>합계금액</span><span>${fmt(d.total)} 원</span></div>
   </div>
-
-  ${d.remark.trim() ? `<div style="background:#F8FAFF;border-left:3px solid #2B5BFF;border-radius:0 6px 6px 0;padding:11px 16px;font-size:12px;color:#374151;line-height:1.85;margin-bottom:20px;white-space:pre-wrap">${remarkLines}</div>` : ''}
-
-  <!-- 푸터 -->
+  ${d.remark.trim()?`<div style="background:#F8FAFF;border-left:3px solid #2B5BFF;padding:11px 16px;font-size:12px;color:#374151;line-height:1.85;margin-bottom:20px;white-space:pre-wrap">${remarkLines}</div>`:''}
   <div style="margin-top:auto;padding-top:16px;border-top:1px solid #E5E9F0;display:flex;justify-content:space-between;align-items:flex-end">
-    <div style="font-size:11px;color:#9CA3AF;line-height:1.9">
-      <div style="font-weight:700;color:#374151;font-size:12px;margin-bottom:3px">주식회사 슈어포인트</div>
-      사업자등록번호 : 247-88-03322<br>
-      주소 : 경기도 오산시 문시로 109-22<br>
-      대표전화 : 1551-4920 &nbsp;|&nbsp; 이메일 : surepoint@surepoint.kr
-    </div>
+    <div style="font-size:11px;color:#9CA3AF;line-height:1.9"><div style="font-weight:700;color:#374151;font-size:12px;margin-bottom:3px">주식회사 슈어포인트</div>사업자등록번호 : 247-88-03322<br>주소 : 경기도 오산시 문시로 109-22<br>대표전화 : 1551-4920 | 이메일 : surepoint@surepoint.kr</div>
     <div style="display:flex;align-items:center;gap:12px">
       <div style="font-size:12px;color:#374151;font-weight:600;text-align:center;line-height:1.5">주식회사<br>슈어포인트</div>
-      ${stampURL ? '<img src="'+stampURL+'" style="width:70px;height:70px;object-fit:contain;border-radius:6px">' : '<div style="width:70px;height:70px;border:1.5px solid #E5E9F0;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#D1D5DB">인감</div>'}
+      ${stampURL?`<img src="${stampURL}" style="width:70px;height:70px;object-fit:contain;border-radius:6px">`:'<div style="width:70px;height:70px;border:1.5px solid #E5E9F0;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#D1D5DB">인감</div>'}
     </div>
   </div>
-
-  <!-- 하단 로고 -->
-  <div style="margin-top:20px;padding-top:16px;border-top:1px solid #F0F3F8;display:flex;justify-content:center">
-    ${logoURL ? '<img src="'+logoURL+'" alt="SurePoint" style="height:18px;opacity:0.4;display:block">' : ''}
-  </div>
+  ${logoURL?`<div style="margin-top:20px;padding-top:16px;border-top:1px solid #F0F3F8;display:flex;justify-content:center"><img src="${logoURL}" style="height:18px;opacity:0.4"></div>`:''}
 </div>`;
 }
 
-// ── 공통 렌더 함수 ──
-async function renderToCanvas() {
-  const d = collectData();
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;left:0;top:0;z-index:-999;width:794px;background:#fff;overflow:hidden;';
-  wrap.innerHTML = buildPDFHTML(d);
-  document.body.appendChild(wrap);
+// ═══════════════════════════════════════════════
+// 계약서 — 페이지 단위 블록 빌더
+// A4 = 794×1123px (96dpi). 상하 60px, 좌우 72px 여백.
+// 콘텐츠 높이 = 1123 - 60*2 - 40(하단 페이지번호 영역) = 963px
+// ═══════════════════════════════════════════════
+const CONTRACT_PAGE_W   = 794;
+const CONTRACT_PAGE_H   = 1123;
+const CONTRACT_PAD_V    = 64;   // 상하 여백 (px)
+const CONTRACT_PAD_H    = 76;   // 좌우 여백 (px)
+const CONTRACT_FOOTER_H = 36;   // 하단 페이지번호 영역
+const CONTRACT_CONTENT_H = CONTRACT_PAGE_H - CONTRACT_PAD_V * 2 - CONTRACT_FOOTER_H; // 959
 
-  // 내부 img 로드 대기
-  await Promise.all([...wrap.querySelectorAll('img')].map(img =>
-    new Promise(res => {
-      if (img.complete && img.naturalWidth > 0) return res();
-      img.onload = res;
-      img.onerror = res;
-      setTimeout(res, 3000);
-    })
-  ));
-  await document.fonts.ready;
-  await new Promise(r => setTimeout(r, 150));
+// 블록 하나 = { html: string }  — 각 조항/단락
+function buildContractBlocks(d) {
+  const article = (text) =>
+    `<div style="font-weight:700;margin-top:0;margin-bottom:5px;font-size:13.5px;font-family:'맑은 고딕','Malgun Gothic',sans-serif">${text}</div>`;
+  const cl = (text) =>
+    `<div style="margin-bottom:4px;line-height:1.95;font-size:13px;font-family:'맑은 고딕','Malgun Gothic',sans-serif">${text}</div>`;
+  const sub = (num, text) =>
+    `<div style="padding-left:26px;margin-bottom:4px;line-height:1.9;font-size:13px;font-family:'맑은 고딕','Malgun Gothic',sans-serif">${num}. ${text}</div>`;
+  const bul = (text) =>
+    `<div style="padding-left:22px;margin-bottom:4px;line-height:1.9;font-size:13px;font-family:'맑은 고딕','Malgun Gothic',sans-serif">- ${text}</div>`;
+  const gap = `<div style="height:14px"></div>`;
+  const divider = `<hr style="border:none;border-top:1px solid #bbb;margin:20px 0">`;
 
-  try {
-    return await html2canvas(wrap, {
-      scale: 2, useCORS: true, allowTaint: true,
-      backgroundColor: '#ffffff', width: 794, windowWidth: 794, logging: false,
-    });
-  } finally {
-    document.body.removeChild(wrap);
-  }
+  const specialBlock = d.special && d.special.trim()
+    ? article('특약 사항') +
+      `<div style="border:1px solid #ccc;padding:12px 16px;line-height:1.95;white-space:pre-wrap;font-size:13px;font-family:'맑은 고딕','Malgun Gothic',sans-serif">${d.special}</div>` + gap
+    : '';
+
+  const dateStr = d.date
+    ? d.date.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$1년  $2월  $3일')
+    : '____년  ____월  ____일';
+
+  // 모든 내용을 하나의 HTML 문자열로 — 페이지 분할은 렌더 후 DOM 계산으로 처리
+  return `
+    <div style="text-align:center;margin-bottom:10px">
+      <div style="font-size:22px;font-weight:700;letter-spacing:6px;margin-bottom:6px;font-family:'맑은 고딕','Malgun Gothic',sans-serif">물품공급 및 설치 계약서</div>
+      <div style="font-size:12px;color:#666;font-family:'맑은 고딕','Malgun Gothic',sans-serif">계약번호 : ${d.docnum}</div>
+    </div>
+    ${divider}
+
+    <div style="font-weight:700;margin-bottom:8px;font-size:13px;font-family:'맑은 고딕','Malgun Gothic',sans-serif">◼  계약 당사자</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:12px;font-size:13px;font-family:'맑은 고딕','Malgun Gothic',sans-serif">
+      <tr><td style="padding:7px 10px;border:1px solid #ccc;font-weight:700;background:#f7f7f7;width:100px;white-space:nowrap">공급사 (갑)</td><td style="padding:7px 10px;border:1px solid #ccc">상호: ${d.ga.name} &nbsp;|&nbsp; 대표자: ${d.ga.rep||'___'} &nbsp;|&nbsp; 사업자: ${d.ga.brn} &nbsp;|&nbsp; 주소: ${d.ga.addr}</td></tr>
+      <tr><td style="padding:7px 10px;border:1px solid #ccc;font-weight:700;background:#f7f7f7;white-space:nowrap">수요사 (을)</td><td style="padding:7px 10px;border:1px solid #ccc">상호: ${d.eul.name||'___'} &nbsp;|&nbsp; 대표자: ${d.eul.rep||'___'} &nbsp;|&nbsp; 사업자: ${d.eul.brn||'___'} &nbsp;|&nbsp; 주소: ${d.eul.addr||'___'}</td></tr>
+    </table>
+    ${cl('본 계약은 주식회사 슈어포인트(이하 "갑")와 '+(d.eul.name||'____')+'(이하 "을") 간에 Physical AI 기반 산업안전 솔루션 제품의 공급 및 설치에 관하여 다음과 같이 체결한다.')}
+    ${gap}
+
+    ${article('제1조  (목적)')}
+    ${cl('본 계약은 갑이 을에게 Physical AI 기반 산업안전 솔루션(이하 "제품")을 공급하고 설치함에 있어 양 당사자의 권리와 의무를 정함을 목적으로 한다.')}
+    ${gap}
+
+    ${article('제2조  (공급 제품 및 설치 내역)')}
+    ${cl('① 공급 품목: ' + (d.itemSummary || '견적서 참조'))}
+    ${cl('② 세부 사양, 수량, 단가, 설치 장소 및 일정은 갑이 을에게 발행한 견적서(참조번호: '+(d.quoteref||'—')+')에 따르며, 해당 견적서는 본 계약의 일부를 구성한다.')}
+    ${cl('③ 설치비는 제품 공급가와 별도로 산정되며, 견적서에 명시된 금액을 따른다.')}
+    ${cl('④ 견적 단가의 유효기간은 견적 발행일로부터 30일로 하며, 이를 초과하는 경우 갑은 단가를 재산정할 수 있다.')}
+    ${gap}
+
+    ${article('제3조  (계약 금액)')}
+    ${cl('공급가액: ' + fmt(d.supply) + ' 원 (VAT 별도)')}
+    ${cl('부가가치세: ' + fmt(d.vat) + ' 원')}
+    ${cl('<strong>합계금액: ' + fmt(d.total) + ' 원 (VAT 포함)</strong>')}
+    ${gap}
+
+    ${article('제4조  (대금 지급)')}
+    ${cl('① 을은 갑이 발행하는 세금계산서를 수령한 날로부터 ' + (d.payment || '별도 합의한 기일') + ' 이내에 해당 금액을 갑의 지정 계좌로 지급한다. 별도 합의가 있는 경우 그 합의 내용이 우선한다.')}
+    ${cl('② 을이 지급 기일을 초과하는 경우, 연체일수에 대해 연 12%의 연체이자를 부과한다.')}
+    ${cl('③ 갑은 을의 대금 납입 일정을 확인한 후 제품 제작 및 설치 일정을 개시하며, 납입 지연으로 인한 일정 변동의 책임은 을에게 있다.')}
+    ${gap}
+
+    ${article('제5조  (설치 환경 제공 의무)')}
+    ${cl('① 을은 갑이 원활하게 설치 작업을 수행할 수 있도록 다음 사항을 사전에 준비하고 이를 보장할 의무를 진다.')}
+    ${bul('설치 대상 지게차 및 장비에 대한 접근 권한 제공')}
+    ${bul('안정적인 전원 공급 환경 확보')}
+    ${bul('설치 작업에 필요한 공간 및 안전 환경 제공')}
+    ${bul('설치 일정 내 대상 장비의 운용 중단 협조')}
+    ${cl('② 을이 위 환경을 제때 갖추지 못하여 발생하는 설치 지연 또는 추가 비용은 을이 부담한다.')}
+    ${gap}
+
+    ${article('제6조  (설치 완료 및 인수 확인)')}
+    ${cl('① 갑은 설치 완료 후 을에게 정상 작동 여부를 시연하고, 을은 이를 확인한 후 인수확인서에 서명한다.')}
+    ${cl('② 갑은 설치 완료 시 제품의 주요 설정값(센서 인식 거리, 제동 개입 속도 등)을 인수확인서에 서면으로 기록하며, 해당 인수확인서는 본 계약의 부속 문서로 양 당사자가 각 1부씩 보관한다.')}
+    ${cl('③ 인수확인서 서명일을 기준으로 제품에 대한 운용 책임은 을에게 이전된다.')}
+    ${cl('④ 을은 설치 완료일로부터 7영업일 이내에 육안 및 기능상의 하자를 갑에게 서면으로 통지하여야 하며, 이 기간 내 통지가 없는 경우 정상 인수한 것으로 간주한다.')}
+    ${gap}
+
+    ${article('제7조  (제품의 성격 및 책임 한계)')}
+    ${cl('① 본 계약의 제품은 보조적 산업안전 장치로서, 기존의 작업 안전 수칙, 운전자 교육, 법정 안전 기준 및 운행 규정을 대체하지 않는다.')}
+    ${cl('② 을은 제품 도입 이후에도 관계 법령에서 정한 안전 관리 의무, 운전원 교육, 작업 환경 관리 의무를 지속적으로 이행할 책임을 진다.')}
+    ${cl('③ 갑은 다음 각 호에 해당하는 경우 발생한 손해에 대하여 책임을 지지 않는다.')}
+    ${sub(1,'제품의 권장 사용 환경(조도, 분진, 온습도, 진동 등)을 벗어난 환경에서의 사용')}
+    ${sub(2,'을 또는 제3자에 의한 제품의 임의 수정, 개조, 분해')}
+    ${sub(3,'을의 정기 점검·유지 의무 미이행으로 인한 기능 저하')}
+    ${sub(4,'운전원의 부주의, 안전 수칙 미준수, 제품의 경보·제동 신호 무시')}
+    ${sub(5,'천재지변, 정전, 전압 불안정 등 불가항력적 요인')}
+    ${sub(6,'제품 인식 범위 외 방향 또는 음영 구역에서 발생한 사고')}
+    ${sub(7,'인수확인서에 서면으로 기록된 초기 설정값을 을 또는 제3자가 갑의 사전 서면 동의 없이 임의로 변경하여 정상적인 감지 기능이 저하된 경우')}
+    ${cl('④ 갑의 귀책으로 제품 결함이 인정되는 경우, 갑의 배상 책임은 해당 제품의 공급 대금을 한도로 하며, 간접 손해(영업 손실, 인명 피해 보상금, 제3자 손해배상 등)는 포함하지 않는다. 단, 관계 법령의 강행규정에 의해 배상 책임이 인정되는 경우에는 그 법령이 정하는 바에 따른다.')}
+    ${gap}
+
+    ${article('제7조의2  (영상정보 처리 책임)')}
+    ${cl('① 제품 운용 과정에서 수집되는 영상정보의 수집·보관·파기 및 안내 의무 등 개인정보보호법상 영상정보처리기기 운영에 관한 제반 의무는 실제 운영 주체인 을에게 있다.')}
+    ${cl('② 갑은 을의 영상정보 처리 방식 또는 의무 불이행으로 인해 발생하는 법적 책임을 부담하지 않는다.')}
+    ${gap}
+
+    ${article('제8조  (무상 하자보수)')}
+    ${cl('① 갑은 인수확인일로부터 1년간 제품의 하자에 대해 무상으로 수리 또는 교체한다. 단, 다음에 해당하는 경우는 유상으로 처리한다.')}
+    ${bul('을의 과실 또는 외부 충격으로 인한 파손')}
+    ${bul('제7조 제3항 각 호에 해당하는 사유로 발생한 하자')}
+    ${bul('소모품류(렌즈 커버, 배선 등 소모성 부품)의 교체')}
+    ${cl('② 무상 하자보수 기간 이후의 유지보수는 별도 서비스 계약에 의한다.')}
+    ${gap}
+
+    ${article('제9조  (지식재산권)')}
+    ${cl('① 제품에 내장된 소프트웨어, 펌웨어, AI 알고리즘 및 관련 기술 자료의 지식재산권은 갑에게 귀속된다.')}
+    ${cl('② 을은 제품을 역설계, 분해, 복제하거나 제3자에게 기술을 제공하는 행위를 하여서는 아니 된다.')}
+    ${cl('③ 을은 제품에 부착된 갑의 상표, 로고, 모델명을 임의로 제거하거나 변경할 수 없다.')}
+    ${gap}
+
+    ${article('제10조  (제품의 이전 및 재판매 금지)')}
+    ${cl('① 을은 갑의 사전 서면 동의 없이 본 계약을 통해 공급받은 제품을 제3자에게 양도, 임대, 재판매할 수 없다.')}
+    ${cl('② 을 소속 장비를 제3자에게 이전하는 경우, 해당 장비에 설치된 제품의 처리 방법에 대해 갑과 사전에 협의하여야 한다.')}
+    ${gap}
+
+    ${article('제11조  (계약의 해제 및 해지)')}
+    ${cl('① 을의 귀책으로 인한 해제: 을이 계약금 미납, 설치 환경 미제공, 잔금 연체(30일 초과) 등 본 계약상 의무를 위반한 경우, 갑은 서면 통지 후 계약을 해제할 수 있으며, 기납부된 계약금은 위약금으로 갑에게 귀속된다.')}
+    ${cl('② 갑의 귀책으로 인한 해제: 갑이 정당한 사유 없이 공급 및 설치 의무를 이행하지 못한 경우, 을은 갑에게 서면 통지 후 계약을 해제할 수 있으며, 갑은 수령한 계약금을 반환한다.')}
+    ${cl('③ 어느 일방이 파산, 회생절차 개시, 사업 폐지 등의 사유가 발생한 경우 상대방은 즉시 계약을 해지할 수 있다.')}
+    ${gap}
+
+    ${article('제12조  (비밀 유지)')}
+    ${cl('① 양 당사자는 본 계약의 내용, 단가, 기술 정보 등을 상대방의 서면 동의 없이 제3자에게 공개하거나 본 계약 이외의 목적으로 사용할 수 없다.')}
+    ${cl('② 본 조의 의무는 계약 종료 후 3년간 유효하다.')}
+    ${gap}
+
+    ${article('제13조  (분쟁 해결)')}
+    ${cl('① 본 계약과 관련하여 발생하는 분쟁은 양 당사자가 우선 협의를 통해 해결하도록 노력한다.')}
+    ${cl('② 협의가 이루어지지 않는 경우, 갑의 본사 소재지를 관할하는 법원을 제1심 전속 관할 법원으로 한다.')}
+    ${cl('③ 본 계약의 준거법은 대한민국 법령으로 한다.')}
+    ${gap}
+
+    ${article('제14조  (기타)')}
+    ${cl('① 본 계약서에 명시되지 않은 사항은 상호 협의하여 결정하며, 민법 및 상법 등 관계 법령에 따른다.')}
+    ${cl('② 본 계약은 계약서 2부를 작성하여 갑과 을이 각 1부씩 보관한다.')}
+    ${cl('③ 본 계약서의 내용과 첨부 견적서의 내용이 상충하는 경우, 본 계약서의 내용이 우선한다.')}
+    ${gap}
+
+    ${article('제15조  (보험 가입 의무)')}
+    ${cl('① 을은 관계 법령에 따른 산업재해보상보험 등 의무 보험에 가입하고 계약 기간 동안 이를 유지하여야 한다.')}
+    ${cl('② 을의 보험 미가입 또는 보험 효력 상실로 인해 발생하는 불이익 및 손해에 대해 갑은 책임을 지지 않는다.')}
+    ${gap}
+
+    ${specialBlock}
+    ${divider}
+
+    <div style="text-align:center;margin-bottom:36px;font-size:13px;font-family:'맑은 고딕','Malgun Gothic',sans-serif">${dateStr}</div>
+
+    <div style="margin-bottom:32px;font-family:'맑은 고딕','Malgun Gothic',sans-serif">
+      <div style="font-weight:700;margin-bottom:10px;font-size:13px">갑  (공급사)</div>
+      <div style="display:flex;margin-bottom:8px;font-size:13px"><span style="width:80px;flex-shrink:0">상    호</span><span>${d.ga.name}</span></div>
+      <div style="display:flex;margin-bottom:8px;font-size:13px"><span style="width:80px;flex-shrink:0">주    소</span><span>${d.ga.addr}</span></div>
+      <div style="display:flex;margin-bottom:8px;font-size:13px"><span style="width:80px;flex-shrink:0">대 표 자</span><span>${d.ga.rep||''}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;font-size:12px">(서명 또는 인)</span></span></div>
+    </div>
+
+    <div style="font-family:'맑은 고딕','Malgun Gothic',sans-serif">
+      <div style="font-weight:700;margin-bottom:10px;font-size:13px">을  (수요사)</div>
+      <div style="display:flex;margin-bottom:8px;font-size:13px"><span style="width:80px;flex-shrink:0">상    호</span><span>${d.eul.name||''}</span></div>
+      <div style="display:flex;margin-bottom:8px;font-size:13px"><span style="width:80px;flex-shrink:0">주    소</span><span>${d.eul.addr||''}</span></div>
+      <div style="display:flex;margin-bottom:8px;font-size:13px"><span style="width:80px;flex-shrink:0">대 표 자</span><span>${d.eul.rep||''}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;font-size:12px">(서명 또는 인)</span></span></div>
+    </div>
+  `;
 }
 
-async function downloadPDF() {
-  showToast('PDF 생성 중...', '');
+// ═══════════════════════════════════════════════
+// 계약서 — 페이지 단위 캔버스 배열 반환
+//
+// 전략:
+// 1) 전체 콘텐츠를 좌우여백 포함한 A4 너비(794px)로 한 번에 렌더 → 전체 캔버스
+// 2) 자식 요소의 실제 offsetTop 기준으로 페이지 경계 계산 (요소 중간 안 자름)
+// 3) 전체 캔버스를 y 범위로 sliceY → A4 높이(1123px) 캔버스에 붙이기
+// 4) 페이지 번호는 각 A4 캔버스 하단에 직접 drawText
+// ═══════════════════════════════════════════════
+async function renderContractPages(d) {
+  const SCALE    = 2;
+  const PW       = CONTRACT_PAGE_W;          // 794
+  const PH       = CONTRACT_PAGE_H;          // 1123
+  const PAD_V    = CONTRACT_PAD_V;           // 64  — 상하 여백
+  const PAD_H    = CONTRACT_PAD_H;           // 76  — 좌우 여백
+  const FOOTER_H = CONTRACT_FOOTER_H;        // 36  — 페이지번호 영역
+  const CONTENT_H = PH - PAD_V * 2 - FOOTER_H; // 959 — 실제 콘텐츠 가용 높이
+
+  // ── Step 1: 전체 콘텐츠를 한 번에 렌더해서 실제 높이 측정 ──
+  const measure = document.createElement('div');
+  measure.style.cssText = [
+    `position:fixed`, `left:-9999px`, `top:0`,
+    `width:${PW - PAD_H * 2}px`,   // 좌우 여백 뺀 콘텐츠 너비
+    `background:#fff`,
+    `font-family:'맑은 고딕','Malgun Gothic',sans-serif`,
+    `font-size:13px`, `color:#111`, `line-height:1.9`,
+    `padding:0`, `margin:0`,
+  ].join(';');
+  measure.innerHTML = buildContractBlocks(d);
+  document.body.appendChild(measure);
+  await document.fonts.ready;
+  await new Promise(r => setTimeout(r, 400));
+
+  // ── Step 2: 자식 요소별 위치 기반 페이지 경계 계산 ──
+  const children = Array.from(measure.children);
+  const breaks = [0]; // 각 페이지 시작 y (콘텐츠 기준)
+  let curH = 0;
+
+  for (const el of children) {
+    const elTop = el.offsetTop;
+    const elBot = elTop + el.offsetHeight;
+    const elH   = el.offsetHeight;
+
+    if (curH > 0 && (elTop - breaks[breaks.length - 1]) + elH > CONTENT_H) {
+      breaks.push(elTop); // 이 요소 앞에서 페이지 나눔
+      curH = elH;
+    } else {
+      curH = elBot - breaks[breaks.length - 1];
+    }
+  }
+  const totalContent = measure.scrollHeight;
+  document.body.removeChild(measure);
+
+  const totalPages = breaks.length;
+
+  // ── Step 3: 전체 콘텐츠를 한 번에 html2canvas ──
+  const fullWrap = document.createElement('div');
+  fullWrap.style.cssText = [
+    `position:fixed`, `left:-9999px`, `top:0`,
+    `width:${PW - PAD_H * 2}px`,
+    `background:#fff`,
+    `font-family:'맑은 고딕','Malgun Gothic',sans-serif`,
+    `font-size:13px`, `color:#111`, `line-height:1.9`,
+    `padding:0`, `margin:0`,
+  ].join(';');
+  fullWrap.innerHTML = buildContractBlocks(d);
+  document.body.appendChild(fullWrap);
+  await document.fonts.ready;
+  await new Promise(r => setTimeout(r, 300));
+
+  const fullCanvas = await html2canvas(fullWrap, {
+    scale: SCALE,
+    useCORS: true,
+    allowTaint: true,
+    backgroundColor: '#ffffff',
+    width: PW - PAD_H * 2,
+    logging: false,
+  });
+  document.body.removeChild(fullWrap);
+
+  // ── Step 4: 각 페이지 캔버스 조립 ──
+  const pageCanvases = [];
+
+  for (let i = 0; i < totalPages; i++) {
+    const sliceStartY = breaks[i] * SCALE;
+    const sliceEndY   = i + 1 < totalPages ? breaks[i + 1] * SCALE : fullCanvas.height;
+    const sliceH_src  = sliceEndY - sliceStartY;
+
+    // A4 캔버스
+    const pageCanvas = document.createElement('canvas');
+    pageCanvas.width  = PW * SCALE;
+    pageCanvas.height = PH * SCALE;
+    const ctx = pageCanvas.getContext('2d');
+
+    // 흰 배경
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+
+    // 콘텐츠 붙이기 (상단 여백 + 좌측 여백 적용)
+    const destX = PAD_H * SCALE;
+    const destY = PAD_V * SCALE;
+    ctx.drawImage(
+      fullCanvas,
+      0, sliceStartY,                          // 소스 x, y
+      fullCanvas.width, sliceH_src,            // 소스 w, h
+      destX, destY,                            // 대상 x, y
+      fullCanvas.width, sliceH_src,            // 대상 w, h (1:1, 스케일 맞음)
+    );
+
+    // 페이지 번호
+    const fontSize = 11 * SCALE;
+    ctx.font = `${fontSize}px 'Malgun Gothic', sans-serif`;
+    ctx.fillStyle = '#aaaaaa';
+    ctx.textAlign = 'center';
+    const footerY = (PH - Math.round(FOOTER_H * 0.35)) * SCALE;
+    ctx.fillText(`${i + 1} / ${totalPages}`, (PW / 2) * SCALE, footerY);
+
+    pageCanvases.push(pageCanvas);
+  }
+
+  return pageCanvases;
+}
+
+// ═══════════════════════════════════════════════
+// 계약서 Word (.docx) 내보내기 — JSZip + 순수 XML
+// ═══════════════════════════════════════════════
+async function downloadContractDocx() {
+  showToast('Word 파일 생성 중...');
   try {
-    const canvas = await renderToCanvas();
+    const d = collectContractData();
+
+    const dateStr = d.date
+      ? d.date.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$1년  $2월  $3일')
+      : '____년  ____월  ____일';
+
+    // ── XML 헬퍼 ──
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    // 단락 생성 (들여쓰기, 굵기 옵션)
+    const para = (text, { bold=false, indent=0, before=60, after=60, size=22, center=false, color='000000' }={}) => {
+      const pPr = `<w:pPr>${center?'<w:jc w:val="center"/>':''}<w:spacing w:before="${before}" w:after="${after}" w:line="320" w:lineRule="auto"/>${indent?`<w:ind w:left="${indent}"/>`:''}${bold?'<w:outlineLvl w:val="1"/>':''}</w:pPr>`;
+      const rPr = `<w:rPr><w:rFonts w:ascii="맑은 고딕" w:hAnsi="맑은 고딕" w:eastAsia="맑은 고딕"/><w:sz w:val="${size}"/><w:szCs w:val="${size}"/>${bold?'<w:b/><w:bCs/>':''}<w:color w:val="${color}"/></w:rPr>`;
+      return `<w:p>${pPr}<w:r>${rPr}<w:t xml:space="preserve">${esc(text)}</w:t></w:r></w:p>`;
+    };
+
+    const ah = t => para(t, { bold:true, before:280, after:100, size:22 });
+    const cl = (t, indent=0) => para(t, { indent, before:60, after:60 });
+    const bul = t => para('- ' + t, { indent:400, before:40, after:40 });
+    const snum = (n, t) => para(n + '. ' + t, { indent:400, before:40, after:40 });
+    const blk = (b=80,a=80) => para('', { before:b, after:a });
+    const ctr = (t, { bold=false, size=22, color='000000' }={}) => para(t, { bold, size, center:true, before:60, after:60, color });
+    const hrPara = () => `<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="4" w:space="1" w:color="AAAAAA"/></w:pBdr><w:spacing w:before="160" w:after="160"/></w:pPr></w:p>`;
+
+    // 2열 테이블 행
+    const tblRow = (label, value, header=false) => `
+      <w:tr>
+        <w:tc><w:tcPr><w:tcW w:w="2000" w:type="dxa"/><w:tcBorders><w:top w:val="single" w:sz="1" w:color="BBBBBB"/><w:left w:val="single" w:sz="1" w:color="BBBBBB"/><w:bottom w:val="single" w:sz="1" w:color="BBBBBB"/><w:right w:val="single" w:sz="1" w:color="BBBBBB"/></w:tcBorders><w:shd w:val="clear" w:fill="F5F5F5"/></w:tcPr>
+          <w:p><w:pPr><w:spacing w:before="80" w:after="80"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="맑은 고딕" w:hAnsi="맑은 고딕" w:eastAsia="맑은 고딕"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:b/><w:bCs/></w:rPr><w:t>${esc(label)}</w:t></w:r></w:p>
+        </w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="7360" w:type="dxa"/><w:tcBorders><w:top w:val="single" w:sz="1" w:color="BBBBBB"/><w:left w:val="single" w:sz="1" w:color="BBBBBB"/><w:bottom w:val="single" w:sz="1" w:color="BBBBBB"/><w:right w:val="single" w:sz="1" w:color="BBBBBB"/></w:tcBorders></w:tcPr>
+          <w:p><w:pPr><w:spacing w:before="80" w:after="80"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="맑은 고딕" w:hAnsi="맑은 고딕" w:eastAsia="맑은 고딕"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t xml:space="preserve">${esc(value)}</w:t></w:r></w:p>
+        </w:tc>
+      </w:tr>`;
+
+    const infoTable = (rows) => `
+      <w:tbl>
+        <w:tblPr><w:tblW w:w="9360" w:type="dxa"/><w:tblLayout w:type="fixed"/></w:tblPr>
+        <w:tblGrid><w:gridCol w:w="2000"/><w:gridCol w:w="7360"/></w:tblGrid>
+        ${rows.map(([l,v]) => tblRow(l,v)).join('')}
+      </w:tbl>`;
+
+    // 서명 행 (탭 구분)
+    const signRowXml = (label, value='') => `
+      <w:p><w:pPr><w:spacing w:before="0" w:after="80"/><w:tabs><w:tab w:val="left" w:pos="1200"/></w:tabs></w:pPr>
+        <w:r><w:rPr><w:rFonts w:ascii="맑은 고딕" w:hAnsi="맑은 고딕" w:eastAsia="맑은 고딕"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:t xml:space="preserve">${esc(label)}</w:t></w:r>
+        <w:r><w:rPr><w:rFonts w:ascii="맑은 고딕" w:hAnsi="맑은 고딕" w:eastAsia="맑은 고딕"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:tab/><w:t xml:space="preserve">${esc(value)}</w:t></w:r>
+      </w:p>`;
+
+    const signLineXml = (label) => `
+      <w:p><w:pPr><w:spacing w:before="0" w:after="80"/><w:tabs><w:tab w:val="left" w:pos="1200"/></w:tabs></w:pPr>
+        <w:r><w:rPr><w:rFonts w:ascii="맑은 고딕" w:hAnsi="맑은 고딕" w:eastAsia="맑은 고딕"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:t xml:space="preserve">${esc(label)}</w:t></w:r>
+        <w:r><w:rPr><w:rFonts w:ascii="맑은 고딕" w:hAnsi="맑은 고딕" w:eastAsia="맑은 고딕"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:tab/></w:r>
+        <w:r><w:rPr><w:rFonts w:ascii="맑은 고딕" w:hAnsi="맑은 고딕" w:eastAsia="맑은 고딕"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:color w:val="888888"/></w:rPr><w:t xml:space="preserve">                                        (서명 또는 인)</w:t></w:r>
+      </w:p>`;
+
+    const specialClauses = d.special && d.special.trim()
+      ? ah('특약 사항') + cl(d.special) + blk() : '';
+
+    // ── document.xml 본문 ──
+    const body = [
+      blk(480, 0),
+      para('물품공급 및 설치 계약서', { bold:true, size:40, center:true, before:0, after:80 }),
+      blk(120, 0),
+      para(`계약번호 : ${d.docnum}`, { size:20, center:true, color:'555555', before:0, after:60 }),
+      blk(120, 0),
+
+      para('◼  계약 당사자', { bold:true, size:24, before:0, after:120 }),
+      blk(60, 0),
+      infoTable([
+        ['공급사 (갑)', `상호: ${d.ga.name}  |  대표자: ${d.ga.rep||'___'}  |  사업자: ${d.ga.brn}  |  주소: ${d.ga.addr}`],
+        ['수요사 (을)', `상호: ${d.eul.name||'___'}  |  대표자: ${d.eul.rep||'___'}  |  사업자: ${d.eul.brn||'___'}  |  주소: ${d.eul.addr||'___'}`],
+      ]),
+      blk(120, 0),
+      cl(`본 계약은 ${d.ga.name}(이하 "갑")와 ${d.eul.name||'____'}(이하 "을") 간에 Physical AI 기반 산업안전 솔루션 제품의 공급 및 설치에 관하여 다음과 같이 체결한다.`),
+      blk(),
+
+      ah('제1조  (목적)'),
+      cl('본 계약은 갑이 을에게 Physical AI 기반 산업안전 솔루션(이하 "제품")을 공급하고 설치함에 있어 양 당사자의 권리와 의무를 정함을 목적으로 한다.'),
+      blk(),
+
+      ah('제2조  (공급 제품 및 설치 내역)'),
+      cl(`① 공급 품목: ${d.itemSummary||'견적서 참조'}`),
+      cl(`② 세부 사양, 수량, 단가, 설치 장소 및 일정은 갑이 을에게 발행한 견적서(참조번호: ${d.quoteref||'—'})에 따르며, 해당 견적서는 본 계약의 일부를 구성한다.`),
+      cl('③ 설치비는 제품 공급가와 별도로 산정되며, 견적서에 명시된 금액을 따른다.'),
+      cl('④ 견적 단가의 유효기간은 견적 발행일로부터 30일로 하며, 이를 초과하는 경우 갑은 단가를 재산정할 수 있다.'),
+      blk(),
+
+      ah('제3조  (계약 금액)'),
+      cl(`공급가액: ${fmt(d.supply)} 원 (VAT 별도)`),
+      cl(`부가가치세: ${fmt(d.vat)} 원`),
+      cl(`합계금액: ${fmt(d.total)} 원 (VAT 포함)`),
+      blk(),
+
+      ah('제4조  (대금 지급)'),
+      cl(`① 을은 갑이 발행하는 세금계산서를 수령한 날로부터 ${d.payment||'별도 합의한 기일'} 이내에 해당 금액을 갑의 지정 계좌로 지급한다. 별도 합의가 있는 경우 그 합의 내용이 우선한다.`),
+      cl('② 을이 지급 기일을 초과하는 경우, 연체일수에 대해 연 12%의 연체이자를 부과한다.'),
+      cl('③ 갑은 을의 대금 납입 일정을 확인한 후 제품 제작 및 설치 일정을 개시하며, 납입 지연으로 인한 일정 변동의 책임은 을에게 있다.'),
+      blk(),
+
+      ah('제5조  (설치 환경 제공 의무)'),
+      cl('① 을은 갑이 원활하게 설치 작업을 수행할 수 있도록 다음 사항을 사전에 준비하고 이를 보장할 의무를 진다.'),
+      bul('설치 대상 지게차 및 장비에 대한 접근 권한 제공'),
+      bul('안정적인 전원 공급 환경 확보'),
+      bul('설치 작업에 필요한 공간 및 안전 환경 제공'),
+      bul('설치 일정 내 대상 장비의 운용 중단 협조'),
+      cl('② 을이 위 환경을 제때 갖추지 못하여 발생하는 설치 지연 또는 추가 비용은 을이 부담한다.'),
+      blk(),
+
+      ah('제6조  (설치 완료 및 인수 확인)'),
+      cl('① 갑은 설치 완료 후 을에게 정상 작동 여부를 시연하고, 을은 이를 확인한 후 인수확인서에 서명한다.'),
+      cl('② 갑은 설치 완료 시 제품의 주요 설정값(센서 인식 거리, 제동 개입 속도 등)을 인수확인서에 서면으로 기록하며, 해당 인수확인서는 본 계약의 부속 문서로 양 당사자가 각 1부씩 보관한다.'),
+      cl('③ 인수확인서 서명일을 기준으로 제품에 대한 운용 책임은 을에게 이전된다.'),
+      cl('④ 을은 설치 완료일로부터 7영업일 이내에 육안 및 기능상의 하자를 갑에게 서면으로 통지하여야 하며, 이 기간 내 통지가 없는 경우 정상 인수한 것으로 간주한다.'),
+      blk(),
+
+      ah('제7조  (제품의 성격 및 책임 한계)'),
+      cl('① 본 계약의 제품은 보조적 산업안전 장치로서, 기존의 작업 안전 수칙, 운전자 교육, 법정 안전 기준 및 운행 규정을 대체하지 않는다.'),
+      cl('② 을은 제품 도입 이후에도 관계 법령에서 정한 안전 관리 의무, 운전원 교육, 작업 환경 관리 의무를 지속적으로 이행할 책임을 진다.'),
+      cl('③ 갑은 다음 각 호에 해당하는 경우 발생한 손해에 대하여 책임을 지지 않는다.'),
+      snum(1,'제품의 권장 사용 환경(조도, 분진, 온습도, 진동 등)을 벗어난 환경에서의 사용'),
+      snum(2,'을 또는 제3자에 의한 제품의 임의 수정, 개조, 분해'),
+      snum(3,'을의 정기 점검·유지 의무 미이행으로 인한 기능 저하'),
+      snum(4,'운전원의 부주의, 안전 수칙 미준수, 제품의 경보·제동 신호 무시'),
+      snum(5,'천재지변, 정전, 전압 불안정 등 불가항력적 요인'),
+      snum(6,'제품 인식 범위 외 방향 또는 음영 구역에서 발생한 사고'),
+      snum(7,'인수확인서에 서면으로 기록된 초기 설정값을 을 또는 제3자가 갑의 사전 서면 동의 없이 임의로 변경하여 정상적인 감지 기능이 저하된 경우'),
+      cl('④ 갑의 귀책으로 제품 결함이 인정되는 경우, 갑의 배상 책임은 해당 제품의 공급 대금을 한도로 하며, 간접 손해(영업 손실, 인명 피해 보상금, 제3자 손해배상 등)는 포함하지 않는다. 단, 관계 법령의 강행규정에 의해 배상 책임이 인정되는 경우에는 그 법령이 정하는 바에 따른다.'),
+      blk(),
+
+      ah('제7조의2  (영상정보 처리 책임)'),
+      cl('① 제품 운용 과정에서 수집되는 영상정보의 수집·보관·파기 및 안내 의무 등 개인정보보호법상 영상정보처리기기 운영에 관한 제반 의무는 실제 운영 주체인 을에게 있다.'),
+      cl('② 갑은 을의 영상정보 처리 방식 또는 의무 불이행으로 인해 발생하는 법적 책임을 부담하지 않는다.'),
+      blk(),
+
+      ah('제8조  (무상 하자보수)'),
+      cl('① 갑은 인수확인일로부터 1년간 제품의 하자에 대해 무상으로 수리 또는 교체한다. 단, 다음에 해당하는 경우는 유상으로 처리한다.'),
+      bul('을의 과실 또는 외부 충격으로 인한 파손'),
+      bul('제7조 제3항 각 호에 해당하는 사유로 발생한 하자'),
+      bul('소모품류(렌즈 커버, 배선 등 소모성 부품)의 교체'),
+      cl('② 무상 하자보수 기간 이후의 유지보수는 별도 서비스 계약에 의한다.'),
+      blk(),
+
+      ah('제9조  (지식재산권)'),
+      cl('① 제품에 내장된 소프트웨어, 펌웨어, AI 알고리즘 및 관련 기술 자료의 지식재산권은 갑에게 귀속된다.'),
+      cl('② 을은 제품을 역설계, 분해, 복제하거나 제3자에게 기술을 제공하는 행위를 하여서는 아니 된다.'),
+      cl('③ 을은 제품에 부착된 갑의 상표, 로고, 모델명을 임의로 제거하거나 변경할 수 없다.'),
+      blk(),
+
+      ah('제10조  (제품의 이전 및 재판매 금지)'),
+      cl('① 을은 갑의 사전 서면 동의 없이 본 계약을 통해 공급받은 제품을 제3자에게 양도, 임대, 재판매할 수 없다.'),
+      cl('② 을 소속 장비를 제3자에게 이전하는 경우, 해당 장비에 설치된 제품의 처리 방법에 대해 갑과 사전에 협의하여야 한다.'),
+      blk(),
+
+      ah('제11조  (계약의 해제 및 해지)'),
+      cl('① 을의 귀책으로 인한 해제: 을이 계약금 미납, 설치 환경 미제공, 잔금 연체(30일 초과) 등 본 계약상 의무를 위반한 경우, 갑은 서면 통지 후 계약을 해제할 수 있으며, 기납부된 계약금은 위약금으로 갑에게 귀속된다.'),
+      cl('② 갑의 귀책으로 인한 해제: 갑이 정당한 사유 없이 공급 및 설치 의무를 이행하지 못한 경우, 을은 갑에게 서면 통지 후 계약을 해제할 수 있으며, 갑은 수령한 계약금을 반환한다.'),
+      cl('③ 어느 일방이 파산, 회생절차 개시, 사업 폐지 등의 사유가 발생한 경우 상대방은 즉시 계약을 해지할 수 있다.'),
+      blk(),
+
+      ah('제12조  (비밀 유지)'),
+      cl('① 양 당사자는 본 계약의 내용, 단가, 기술 정보 등을 상대방의 서면 동의 없이 제3자에게 공개하거나 본 계약 이외의 목적으로 사용할 수 없다.'),
+      cl('② 본 조의 의무는 계약 종료 후 3년간 유효하다.'),
+      blk(),
+
+      ah('제13조  (분쟁 해결)'),
+      cl('① 본 계약과 관련하여 발생하는 분쟁은 양 당사자가 우선 협의를 통해 해결하도록 노력한다.'),
+      cl('② 협의가 이루어지지 않는 경우, 갑의 본사 소재지를 관할하는 법원을 제1심 전속 관할 법원으로 한다.'),
+      cl('③ 본 계약의 준거법은 대한민국 법령으로 한다.'),
+      blk(),
+
+      ah('제14조  (기타)'),
+      cl('① 본 계약서에 명시되지 않은 사항은 상호 협의하여 결정하며, 민법 및 상법 등 관계 법령에 따른다.'),
+      cl('② 본 계약은 계약서 2부를 작성하여 갑과 을이 각 1부씩 보관한다.'),
+      cl('③ 본 계약서의 내용과 첨부 견적서의 내용이 상충하는 경우, 본 계약서의 내용이 우선한다.'),
+      blk(),
+
+      ah('제15조  (보험 가입 의무)'),
+      cl('① 을은 관계 법령에 따른 산업재해보상보험 등 의무 보험에 가입하고 계약 기간 동안 이를 유지하여야 한다.'),
+      cl('② 을의 보험 미가입 또는 보험 효력 상실로 인해 발생하는 불이익 및 손해에 대해 갑은 책임을 지지 않는다.'),
+      blk(),
+
+      specialClauses,
+      hrPara(),
+
+      ctr(dateStr, { before:160, after:160 }),
+      blk(240, 0),
+
+      para('갑  (공급사)', { bold:true, before:0, after:80 }),
+      signRowXml('상    호', d.ga.name),
+      signRowXml('주    소', d.ga.addr),
+      signLineXml('대 표 자'),
+      blk(160, 0),
+
+      para('을  (수요사)', { bold:true, before:0, after:80 }),
+      signRowXml('상    호', d.eul.name||''),
+      signRowXml('주    소', d.eul.addr||''),
+      signLineXml('대 표 자'),
+      blk(200, 0),
+
+      '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1260" w:bottom="1440" w:left="1260" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>',
+    ].join('');
+
+    // ── docx XML 파일들 ──
+    const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"
+  xmlns:v="urn:schemas-microsoft-com:vml"
+  xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
+  xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+  xmlns:w10="urn:schemas-microsoft-com:office:word"
+  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
+  xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
+  xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk"
+  xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml"
+  xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+  mc:Ignorable="w14 wp14">
+  <w:body>${body}</w:body>
+</w:document>`;
+
+    const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+    const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:docDefaults>
+    <w:rPrDefault><w:rPr>
+      <w:rFonts w:ascii="맑은 고딕" w:hAnsi="맑은 고딕" w:eastAsia="맑은 고딕"/>
+      <w:sz w:val="22"/><w:szCs w:val="22"/>
+    </w:rPr></w:rPrDefault>
+  </w:docDefaults>
+</w:styles>`;
+
+    const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`;
+
+    const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+    // ── JSZip으로 묶기 ──
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml', contentTypesXml);
+    zip.file('_rels/.rels', rootRelsXml);
+    zip.file('word/document.xml', docXml);
+    zip.file('word/styles.xml', stylesXml);
+    zip.file('word/_rels/document.xml.rels', relsXml);
+
+    const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SurePoint_계약서_${d.docnum}.docx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Word 파일 저장 완료 ✓', 'success');
+  } catch(e) {
+    showToast('Word 오류: ' + e.message, 'error');
+    console.error(e);
+  }
+}
+function openContractPreview() {
+  const d = collectContractData();
+  // 미리보기는 단순 스크롤 HTML (페이지 구분선만 표시)
+  const inner = buildContractBlocks(d);
+  document.getElementById('contract-preview-content').innerHTML = `
+    <div style="background:#fff;padding:64px 76px;font-family:'맑은 고딕','Malgun Gothic',sans-serif;font-size:13px;color:#111;line-height:1.9;max-width:794px;margin:0 auto;box-shadow:0 2px 16px rgba(0,0,0,.1)">
+      ${inner}
+    </div>`;
+  document.getElementById('contract-preview-modal').classList.add('open');
+}
+function closeContractPreview() { document.getElementById('contract-preview-modal').classList.remove('open'); }
+document.getElementById('contract-preview-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('contract-preview-modal')) closeContractPreview();
+});
+
+async function downloadContractPDF() {
+  showToast('계약서 PDF 생성 중...');
+  const d = collectContractData();
+  try {
+    const pages = await renderContractPages(d);
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
-    const d = collectData();
-    const filename = `SurePoint_견적서_${d.docnum||d.date}_${Date.now()}.pdf`;
-    // base64로 추출 (save() 전에)
+    for (let i = 0; i < pages.length; i++) {
+      if (i > 0) pdf.addPage();
+      pdf.addImage(pages[i].toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
+    }
+    const filename = `SurePoint_계약서_${d.docnum}_${Date.now()}.pdf`;
     const pdfBase64 = pdf.output('datauristring');
-    // 로컬 다운로드
     pdf.save(filename);
-    showToast('발행 기록 저장 중...', '');
-    // 발행 기록 저장 (base64 포함)
-    await saveHistory({...d, pdfBase64});
-    await initDocnum();
-    showToast('PDF 저장 완료! ✓', 'success');
+    showToast('계약서 기록 저장 중...');
+    await saveContractHistory({ ...d, pdfBase64 });
+    await initContractDocnum();
+    showToast('계약서 PDF 저장 완료 ✓', 'success');
   } catch(e) {
     showToast('오류: ' + e.message, 'error');
     console.error(e);
   }
 }
 
-async function openPreview() {
-  showToast('미리보기 생성 중...', '');
+// ═══════════════════════════════════════════════
+// 견적서 미리보기 / PDF
+// ═══════════════════════════════════════════════
+async function renderQuoteToCanvas() {
+  const d = collectQuoteData();
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:0;top:0;z-index:-999;width:794px;background:#fff;overflow:hidden;';
+  wrap.innerHTML = buildQuotePDFHTML(d);
+  document.body.appendChild(wrap);
+  await Promise.all([...wrap.querySelectorAll('img')].map(img =>
+    new Promise(res => { if (img.complete && img.naturalWidth > 0) return res(); img.onload = res; img.onerror = res; setTimeout(res, 3000); })
+  ));
+  await document.fonts.ready;
+  await new Promise(r => setTimeout(r, 150));
   try {
-    const canvas = await renderToCanvas();
+    return await html2canvas(wrap, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', width: 794, windowWidth: 794, logging: false });
+  } finally { document.body.removeChild(wrap); }
+}
+
+async function openQuotePreview() {
+  showToast('미리보기 생성 중...');
+  try {
+    const canvas = await renderQuoteToCanvas();
     const pc = document.getElementById('preview-canvas');
-    // 모달 너비에 맞게 스케일 조정
     const maxW = Math.min(window.innerWidth - 80, 760);
     const displayW = Math.min(maxW, canvas.width / 2);
     const displayH = canvas.height / 2 * (displayW / (canvas.width / 2));
-    pc.width = canvas.width;
-    pc.height = canvas.height;
-    pc.style.width = displayW + 'px';
-    pc.style.height = displayH + 'px';
+    pc.width = canvas.width; pc.height = canvas.height;
+    pc.style.width = displayW + 'px'; pc.style.height = displayH + 'px';
     pc.getContext('2d').drawImage(canvas, 0, 0);
     document.getElementById('preview-modal').classList.add('open');
-    showToast('', '');
-  } catch(e) {
-    showToast('미리보기 오류: ' + e.message, 'error');
-    console.error(e);
-  }
+    showToast('');
+  } catch(e) { showToast('미리보기 오류: ' + e.message, 'error'); }
 }
-
-function closePreview() { document.getElementById('preview-modal').classList.remove('open'); }
+function closeQuotePreview() { document.getElementById('preview-modal').classList.remove('open'); }
 document.getElementById('preview-modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('preview-modal')) closePreview();
+  if (e.target === document.getElementById('preview-modal')) closeQuotePreview();
 });
 
-
-async function loadAsset(type, input) {
-  const file = input.files[0]; if (!file) return;
-  showToast('업로드 중...', '');
+async function downloadQuotePDF() {
+  showToast('PDF 생성 중...');
   try {
-    const filename = type === 'logo' ? 'logo' : 'stamp';
-    const url = await sbUpload(filename, file);
-    const cacheBusted = url + '?t=' + Date.now();
-    if (type === 'logo') {
-      logoURL = cacheBusted;
-      document.getElementById('logo-preview').innerHTML = '<img src="'+cacheBusted+'" style="width:100%;height:100%;object-fit:contain">';
-      showToast('로고 저장 완료 ✓', 'success');
-    } else {
-      stampURL = cacheBusted;
-      document.getElementById('stamp-preview').innerHTML = '<img src="'+cacheBusted+'" style="width:100%;height:100%;object-fit:contain">';
-      showToast('인감 저장 완료 ✓', 'success');
-    }
-  } catch(e) {
-    showToast('업로드 오류: ' + e.message, 'error');
-  }
+    const canvas = await renderQuoteToCanvas();
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
+    const d = collectQuoteData();
+    const filename = `SurePoint_견적서_${d.docnum||d.date}_${Date.now()}.pdf`;
+    const pdfBase64 = pdf.output('datauristring');
+    pdf.save(filename);
+    showToast('발행 기록 저장 중...');
+    await saveHistory({ ...d, pdfBase64 });
+    await initDocnum();
+    showToast('PDF 저장 완료 ✓', 'success');
+  } catch(e) { showToast('오류: ' + e.message, 'error'); console.error(e); }
 }
 
-
-
-// ── 문서번호 자동 생성 ──
+// ═══════════════════════════════════════════════
+// 문서번호 자동 생성
+// ═══════════════════════════════════════════════
 async function initDocnum() {
   try {
-    const res = await fetch(
-      `https://yxmxrjcmhguczrgyxgfo.supabase.co/rest/v1/quotation_history?select=id&order=id.desc&limit=1`,
-      { headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4bXhyamNtaGd1Y3pyZ3l4Z2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTY5NDUsImV4cCI6MjA4OTg5Mjk0NX0.xAUk_0J_5vC9emVFooAJEFBRDq7mJP5QGhIcBav6fh8', 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4bXhyamNtaGd1Y3pyZ3l4Z2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTY5NDUsImV4cCI6MjA4OTg5Mjk0NX0.xAUk_0J_5vC9emVFooAJEFBRDq7mJP5QGhIcBav6fh8` } }
-    );
+    const res = await fetch(`${SB_URL}/rest/v1/quotation_history?select=id&order=id.desc&limit=1`, { headers: SB_HDR });
     const data = await res.json();
-    const next = data.length > 0 ? (data[0].id + 1) : 1;
-    const year = new Date().getFullYear();
-    document.getElementById('docnum').value = `SP-${year}-${String(next).padStart(3,'0')}`; 
-  } catch(e) {
-    // 실패 시 기본값 유지
-  }
+    const next = data.length > 0 ? data[0].id + 1 : 1;
+    document.getElementById('docnum').value = `SP-${new Date().getFullYear()}-${String(next).padStart(3,'0')}`;
+  } catch(e) {}
 }
 
-
-// PDF는 base64로 DB에 직접 저장 (Storage 미사용)
-
-// ── PDF 뷰어 ──
-function openPdfViewer(pdfData, docnum) {
-  document.getElementById('pdf-viewer-title').textContent = `견적서 - ${docnum}`;
-  // base64 datauri를 blob URL로 변환해서 iframe에 삽입
-  const byteStr = atob(pdfData.split(',')[1]);
-  const ab = new ArrayBuffer(byteStr.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
-  const blob = new Blob([ab], {type: 'application/pdf'});
-  const blobUrl = URL.createObjectURL(blob);
-  document.getElementById('pdf-viewer-frame').src = blobUrl;
-  document.getElementById('pdf-download-btn').href = blobUrl;
-  document.getElementById('pdf-download-btn').download = `SurePoint_견적서_${docnum}.pdf`;
-  document.getElementById('pdf-viewer-modal').classList.add('open');
+async function initContractDocnum() {
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/contract_history?select=id&order=id.desc&limit=1`, { headers: SB_HDR });
+    const data = await res.json();
+    const next = data.length > 0 ? data[0].id + 1 : 1;
+    document.getElementById('c-docnum').value = `SRP-${new Date().getFullYear()}-${String(next).padStart(3,'0')}`;
+  } catch(e) {}
 }
 
-
-// 행 클릭은 renderHistory에서 tr onclick으로 직접 처리
-
-function closePdfViewer() {
-  document.getElementById('pdf-viewer-modal').classList.remove('open');
-  document.getElementById('pdf-viewer-frame').src = '';
-}
-
-document.getElementById('pdf-viewer-modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('pdf-viewer-modal')) closePdfViewer();
-});
-
-// ── 탭 전환 ──
-function switchTab(name) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ['write','history'][i] === name));
-  document.getElementById('tab-write').classList.toggle('active', name === 'write');
-  document.getElementById('tab-history').classList.toggle('active', name === 'history');
-  if (name === 'history') loadHistory();
-}
-
-// ── 발행 기록 저장 ──
+// ═══════════════════════════════════════════════
+// 발행 기록 저장
+// ═══════════════════════════════════════════════
 async function saveHistory(d) {
   try {
-    await fetch(`https://yxmxrjcmhguczrgyxgfo.supabase.co/rest/v1/quotation_history`, {
+    await fetch(`${SB_URL}/rest/v1/quotation_history`, {
       method: 'POST',
-      headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4bXhyamNtaGd1Y3pyZ3l4Z2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTY5NDUsImV4cCI6MjA4OTg5Mjk0NX0.xAUk_0J_5vC9emVFooAJEFBRDq7mJP5QGhIcBav6fh8',
-        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4bXhyamNtaGd1Y3pyZ3l4Z2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTY5NDUsImV4cCI6MjA4OTg5Mjk0NX0.xAUk_0J_5vC9emVFooAJEFBRDq7mJP5QGhIcBav6fh8`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal',
-      },
+      headers: { ...SB_HDR, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ docnum: d.docnum, client: d.client, project: d.project, contact: d.contact, sales: d.sales, total: d.total, sub: d.sub, vat: d.vat, remark: d.remark, rows_json: d.rows, pdf_base64: d.pdfBase64 || null }),
+    });
+  } catch(e) { console.warn('견적서 기록 저장 실패:', e); }
+}
+
+async function saveContractHistory(d) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/contract_history`, {
+      method: 'POST',
+      headers: { ...SB_HDR, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
       body: JSON.stringify({
-        docnum:    d.docnum,
-        client:    d.client,
-        project:   d.project,
-        contact:   d.contact,
-        sales:     d.sales,
-        total:     d.total,
-        sub:       d.sub,
-        vat:       d.vat,
-        remark:    d.remark,
-        rows_json: d.rows,
+        docnum: d.docnum, ga_name: d.ga.name, eul_name: d.eul.name, eul_contact: d.eul.contact,
+        sales: d.sales, total: d.total, supply: d.supply, vat: d.vat,
+        item_summary: d.itemSummary, payment: d.payment, quote_ref: d.quoteref,
         pdf_base64: d.pdfBase64 || null,
       }),
     });
-  } catch(e) { console.warn('기록 저장 실패:', e); }
+  } catch(e) { console.warn('계약서 기록 저장 실패:', e); }
 }
 
-// ── 발행 기록 조회 ──
+// ═══════════════════════════════════════════════
+// 발행 기록 조회
+// ═══════════════════════════════════════════════
+let _histMode = 'quote'; // 'quote' | 'contract'
+let _histAllData = [], _renderedData = [];
 
-async function deleteHistory(id) {
-  if (!confirm('이 발행 기록을 삭제하시겠습니까?')) return;
-  try {
-    const res = await fetch(
-      `https://yxmxrjcmhguczrgyxgfo.supabase.co/rest/v1/quotation_history?id=eq.${id}`,
-      {
-        method: 'DELETE',
-        headers: {
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4bXhyamNtaGd1Y3pyZ3l4Z2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTY5NDUsImV4cCI6MjA4OTg5Mjk0NX0.xAUk_0J_5vC9emVFooAJEFBRDq7mJP5QGhIcBav6fh8',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4bXhyamNtaGd1Y3pyZ3l4Z2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTY5NDUsImV4cCI6MjA4OTg5Mjk0NX0.xAUk_0J_5vC9emVFooAJEFBRDq7mJP5QGhIcBav6fh8`,
-          'Prefer': 'return=minimal',
-        }
-      }
-    );
-    if (res.ok) { showToast('삭제 완료', 'success'); loadHistory(); }
-    else throw new Error('삭제 실패');
-  } catch(e) { showToast('삭제 오류: ' + e.message, 'error'); }
+function switchHistTab(mode) {
+  _histMode = mode;
+  document.getElementById('hist-tab-quote').style.color = mode === 'quote' ? 'var(--sp-blue)' : 'var(--sp-gray)';
+  document.getElementById('hist-tab-quote').style.borderColor = mode === 'quote' ? 'var(--sp-blue)' : 'var(--sp-border)';
+  document.getElementById('hist-tab-contract').style.color = mode === 'contract' ? 'var(--sp-blue)' : 'var(--sp-gray)';
+  document.getElementById('hist-tab-contract').style.borderColor = mode === 'contract' ? 'var(--sp-blue)' : 'var(--sp-border)';
+  loadHistory();
 }
-
-// 전체 기록 캐시
-let _histAllData = [];
 
 async function loadHistory() {
   const el = document.getElementById('hist-content');
   el.innerHTML = '<div class="hist-empty">불러오는 중...</div>';
   try {
-    const SB_URL = 'https://yxmxrjcmhguczrgyxgfo.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4bXhyamNtaGd1Y3pyZ3l4Z2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTY5NDUsImV4cCI6MjA4OTg5Mjk0NX0.xAUk_0J_5vC9emVFooAJEFBRDq7mJP5QGhIcBav6fh8';
-    const res = await fetch(
-      `${SB_URL}/rest/v1/quotation_history?select=*&order=created_at.desc&limit=500`,
-      { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } }
-    );
+    const table = _histMode === 'quote' ? 'quotation_history' : 'contract_history';
+    const res = await fetch(`${SB_URL}/rest/v1/${table}?select=*&order=created_at.desc&limit=500`, { headers: SB_HDR });
     _histAllData = await res.json();
     applyFilter();
-  } catch(e) {
-    el.innerHTML = '<div class="hist-empty">불러오기 실패: ' + e.message + '</div>';
-  }
+  } catch(e) { el.innerHTML = '<div class="hist-empty">불러오기 실패: ' + e.message + '</div>'; }
 }
 
-// ── 검색 필터 적용 ──
 function applyFilter() {
-  const q = s => (document.getElementById(s)?.value || '').trim().toLowerCase();
-  const docnum  = q('s-docnum');
-  const client  = q('s-client');
-  const contact = q('s-contact');
-  const sales   = q('s-sales');
-  const project = q('s-project');
+  const q = id => (document.getElementById(id)?.value || '').trim().toLowerCase();
+  const [docnum, client, contact, sales, project] = ['s-docnum','s-client','s-contact','s-sales','s-project'].map(q);
   const fromVal = document.getElementById('s-from')?.value;
-  const toVal   = document.getElementById('s-to')?.value;
-  const from    = fromVal ? new Date(fromVal + 'T00:00:00') : null;
-  const to      = toVal   ? new Date(toVal   + 'T23:59:59') : null;
+  const toVal = document.getElementById('s-to')?.value;
+  const from = fromVal ? new Date(fromVal + 'T00:00:00') : null;
+  const to = toVal ? new Date(toVal + 'T23:59:59') : null;
 
   const filtered = _histAllData.filter(r => {
+    const clientField = _histMode === 'quote' ? r.client : r.eul_name;
     const dt = new Date(r.created_at);
     return (
-      (!docnum  || (r.docnum  ||'').toLowerCase().includes(docnum))  &&
-      (!client  || (r.client  ||'').toLowerCase().includes(client))  &&
-      (!contact || (r.contact ||'').toLowerCase().includes(contact)) &&
-      (!sales   || (r.sales   ||'').toLowerCase().includes(sales))   &&
-      (!project || (r.project ||'').toLowerCase().includes(project)) &&
-      (!from    || dt >= from) &&
-      (!to      || dt <= to)
+      (!docnum  || (r.docnum||'').toLowerCase().includes(docnum)) &&
+      (!client  || (clientField||'').toLowerCase().includes(client)) &&
+      (!contact || (r.contact||r.eul_contact||'').toLowerCase().includes(contact)) &&
+      (!sales   || (r.sales||'').toLowerCase().includes(sales)) &&
+      (!project || (r.project||r.item_summary||'').toLowerCase().includes(project)) &&
+      (!from    || dt >= from) && (!to || dt <= to)
     );
   });
-
   renderHistory(filtered);
 }
 
 function clearFilter() {
-  ['s-docnum','s-client','s-contact','s-sales','s-project','s-from','s-to']
-    .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  ['s-docnum','s-client','s-contact','s-sales','s-project','s-from','s-to'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   applyFilter();
 }
 
-// 키워드 하이라이트
 function hl(text, kw) {
   if (!kw || !text) return text || '-';
-  const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return String(text).replace(new RegExp(`(${escaped})`, 'gi'),
-    '<mark class="highlight">$1</mark>');
+  return String(text).replace(new RegExp(`(${kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'), '<mark class="highlight">$1</mark>');
 }
-
-// 현재 렌더된 데이터 캐시 (인덱스로 접근하기 위해)
-let _renderedData = [];
 
 function openPdfByIdx(idx) {
   const r = _renderedData[idx];
-  if (!r) return;
-  if (r.pdf_base64) {
-    openPdfViewer(r.pdf_base64, r.docnum || '');
-  } else {
-    showToast('저장된 PDF가 없습니다. 해당 견적서를 다시 저장해주세요.', 'error');
-  }
+  if (!r?.pdf_base64) { showToast('저장된 PDF가 없습니다.', 'error'); return; }
+  document.getElementById('pdf-viewer-title').textContent = ((_histMode==='contract'?'계약서':'견적서') + ' - ' + (r.docnum||''));
+  const byteStr = atob(r.pdf_base64.split(',')[1]);
+  const ab = new ArrayBuffer(byteStr.length); const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
+  const blob = new Blob([ab], { type: 'application/pdf' });
+  const blobUrl = URL.createObjectURL(blob);
+  document.getElementById('pdf-viewer-frame').src = blobUrl;
+  document.getElementById('pdf-download-btn').href = blobUrl;
+  document.getElementById('pdf-download-btn').download = `SurePoint_${_histMode==='contract'?'계약서':'견적서'}_${r.docnum||''}.pdf`;
+  document.getElementById('pdf-viewer-modal').classList.add('open');
+}
+
+async function deleteHistoryItem(id) {
+  if (!confirm('이 기록을 삭제하시겠습니까?')) return;
+  const table = _histMode === 'quote' ? 'quotation_history' : 'contract_history';
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${id}`, { method: 'DELETE', headers: { ...SB_HDR, 'Prefer': 'return=minimal' } });
+    if (res.ok) { showToast('삭제 완료', 'success'); loadHistory(); }
+    else throw new Error('삭제 실패');
+  } catch(e) { showToast('삭제 오류: ' + e.message, 'error'); }
 }
 
 function renderHistory(data) {
   _renderedData = data;
   const el = document.getElementById('hist-content');
   const countEl = document.getElementById('s-count');
-  const total_q = _histAllData.length;
+  if (countEl) countEl.textContent = data.length < _histAllData.length ? `${data.length} / ${_histAllData.length}건` : `총 ${_histAllData.length}건`;
+  if (!data.length) { el.innerHTML = `<div class="hist-empty">${_histAllData.length ? '검색 결과가 없습니다.' : '아직 발행된 기록이 없습니다.'}</div>`; return; }
 
-  if (countEl) {
-    countEl.textContent = data.length < total_q
-      ? `${data.length} / ${total_q}건`
-      : `총 ${total_q}건`;
-  }
+  const kDocnum  = document.getElementById('s-docnum')?.value  || '';
+  const kClient  = document.getElementById('s-client')?.value  || '';
+  const kContact = document.getElementById('s-contact')?.value || '';
+  const kSales   = document.getElementById('s-sales')?.value   || '';
+  const kProject = document.getElementById('s-project')?.value || '';
 
-  if (!data.length) {
-    el.innerHTML = '<div class="hist-empty">' +
-      (total_q ? '검색 결과가 없습니다.' : '아직 발행된 견적서가 없습니다.') +
-      '</div>';
-    return;
-  }
-
-  // 검색어 (하이라이트용)
-  const kDocnum  = (document.getElementById('s-docnum')?.value  || '').trim();
-  const kClient  = (document.getElementById('s-client')?.value  || '').trim();
-  const kContact = (document.getElementById('s-contact')?.value || '').trim();
-  const kSales   = (document.getElementById('s-sales')?.value   || '').trim();
-  const kProject = (document.getElementById('s-project')?.value || '').trim();
+  const isContract = _histMode === 'contract';
 
   const rows = data.map((r, idx) => {
     const dt = new Date(r.created_at);
-    const dateStr = dt.toLocaleDateString('ko-KR') + ' ' +
-      dt.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+    const dateStr = dt.toLocaleDateString('ko-KR') + ' ' + dt.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
+    const clientName = isContract ? r.eul_name : r.client;
+    const projectName = isContract ? r.item_summary : r.project;
+    const contactName = isContract ? r.eul_contact : r.contact;
     const totalStr = r.total ? Number(r.total).toLocaleString('ko-KR') + ' 원' : '-';
-    const hasP = !!r.pdf_base64;
-    // PDF URL과 docnum을 전역 캐시 인덱스로 전달 (따옴표 충돌 완전 회피)
-    const viewBtn = hasP
-      ? `<button onclick="event.stopPropagation();openPdfByIdx(${idx})" style="background:#EFF6FF;color:#2563EB;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;margin-right:4px">미리보기</button>`
-      : '';
-    return `<tr style="cursor:default">
+    return `<tr>
       <td>${dateStr}</td>
-      <td>${hl(r.docnum,  kDocnum)}</td>
-      <td>${hl(r.client,  kClient)}</td>
-      <td>${hl(r.project, kProject)}</td>
-      <td>${hl(r.sales,   kSales)}</td>
+      <td>${hl(r.docnum, kDocnum)}</td>
+      <td>${hl(clientName, kClient)}</td>
+      <td>${hl(projectName, kProject)}</td>
+      <td>${hl(r.sales, kSales)}</td>
       <td class="badge-total">${totalStr}</td>
       <td style="white-space:nowrap">
         <button onclick="openPdfByIdx(${idx})" style="background:#EFF6FF;color:#2563EB;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;margin-right:4px">미리보기</button>
-        <button onclick="deleteHistory(${r.id})" style="background:#FEF2F2;color:#DC2626;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">삭제</button>
+        <button onclick="deleteHistoryItem(${r.id})" style="background:#FEF2F2;color:#DC2626;border:none;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">삭제</button>
       </td>
     </tr>`;
   }).join('');
 
-  el.innerHTML = `
-    <table class="hist-table">
-      <thead><tr>
-        <th>발행일시</th><th>문서번호</th><th>고객사</th>
-        <th>프로젝트</th><th>담당영업</th><th>합계금액</th><th></th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+  el.innerHTML = `<table class="hist-table"><thead><tr>
+    <th>발행일시</th><th>문서번호</th><th>${isContract?'을 (수요사)':'고객사'}</th>
+    <th>${isContract?'공급품목':'프로젝트'}</th><th>담당영업</th><th>합계금액</th><th></th>
+  </tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+// ═══════════════════════════════════════════════
+// PDF 뷰어
+// ═══════════════════════════════════════════════
+function closePdfViewer() { document.getElementById('pdf-viewer-modal').classList.remove('open'); document.getElementById('pdf-viewer-frame').src = ''; }
+document.getElementById('pdf-viewer-modal').addEventListener('click', e => { if (e.target === document.getElementById('pdf-viewer-modal')) closePdfViewer(); });
+
+// ═══════════════════════════════════════════════
+// Toast
+// ═══════════════════════════════════════════════
 function showToast(msg, type) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast' + (msg ? ' show' : '') + (type ? ' '+type : '');
+  t.textContent = msg; t.className = 'toast' + (msg ? ' show' : '') + (type ? ' ' + type : '');
   clearTimeout(t._tid);
   if (msg) t._tid = setTimeout(() => t.className = 'toast', 3500);
 }
