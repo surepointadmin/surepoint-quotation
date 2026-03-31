@@ -1284,7 +1284,13 @@ async function downloadQuotePDF() {
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
     const d = collectQuoteData();
-    const filename = `SurePoint_견적서_${d.docnum||d.date}_${Date.now()}.pdf`;
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(2);
+    const mm = String(now.getMonth()+1).padStart(2,'0');
+    const dd = String(now.getDate()).padStart(2,'0');
+    const dateStr = `${yy}.${mm}.${dd}`;
+    const clientSafe = (d.client||'').replace(/[\/\\:*?"<>|]/g,'').trim() || 'noname';
+    const filename = `surepoint_${clientSafe}_${d.docnum||''}_${dateStr}.pdf`;
     const pdfBase64 = pdf.output('datauristring');
     pdf.save(filename);
     showToast('발행 기록 저장 중...');
